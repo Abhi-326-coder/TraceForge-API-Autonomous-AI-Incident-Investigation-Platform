@@ -1,0 +1,19 @@
+services:
+
+  postgres:
+    image: postgres:16
+    container_name: traceforge-postgres
+
+    environment:
+      POSTGRES_USER: traceforge
+      POSTGRES_PASSWORD: traceforge
+      POSTGRES_DB: traceforge
+
+    ports:
+      - "5432:5432"
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
