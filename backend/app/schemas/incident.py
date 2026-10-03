@@ -1,13 +1,29 @@
+from datetime import datetime
+
 from pydantic import BaseModel
 
 
+class IncidentCreate(BaseModel):
+    title: str
+    description: str
+    service: str
+    severity: str
+
+
 class IncidentResponse(BaseModel):
-    id: str
+    id: int
+    external_id: str
     title: str
     description: str
     service: str
     severity: str
     status: str
+    project_id: int
+    created_at: datetime
+
+    model_config = {
+        "from_attributes": True
+    }
 
 
 class LogResponse(BaseModel):
@@ -23,4 +39,3 @@ class MetricsResponse(BaseModel):
     latency_ms: int
     database_connections: int
     database_connection_limit: int
-
