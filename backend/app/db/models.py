@@ -183,3 +183,57 @@ class Investigation(Base):
     incident: Mapped["Incident"] = relationship(
         back_populates="investigations"
     )
+    
+    evidence: Mapped[list["Evidence"]] = relationship(
+    back_populates="investigation",
+    cascade="all, delete-orphan",
+    )
+    
+class Evidence(Base):
+    __tablename__ = "evidence"
+
+    id: Mapped[int] = mapped_column(
+        primary_key=True,
+        autoincrement=True,
+    )
+
+    investigation_id: Mapped[int] = mapped_column(
+        ForeignKey("investigations.id"),
+        nullable=False,
+    )
+
+    source_type: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+    )
+
+    provider: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+    )
+
+    title: Mapped[str] = mapped_column(
+        String(200),
+        nullable=False,
+    )
+
+    content: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+    )
+
+    source_reference: Mapped[str | None] = mapped_column(
+        String(500),
+        nullable=True,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=datetime.utcnow,
+        nullable=False,
+    )
+
+    investigation: Mapped["Investigation"] = relationship(
+        back_populates="evidence",
+    )
+
