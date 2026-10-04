@@ -95,6 +95,11 @@ class Incident(Base):
         back_populates="incidents"
     )
     
+    investigations: Mapped[list["Investigation"]] = relationship(
+    back_populates="incident",
+    cascade="all, delete-orphan",
+    )
+    
 class ProjectConnection(Base):
     __tablename__ = "project_connections"
 
@@ -132,4 +137,49 @@ class ProjectConnection(Base):
 
     project: Mapped["Project"] = relationship(
         back_populates="connections"
+    )
+    
+class Investigation(Base):
+    __tablename__ = "investigations"
+
+    id: Mapped[int] = mapped_column(
+        primary_key=True,
+        autoincrement=True,
+    )
+
+    incident_id: Mapped[int] = mapped_column(
+        ForeignKey("incidents.id"),
+        nullable=False,
+    )
+
+    status: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+        default="CREATED",
+    )
+
+    current_stage: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+        default="CREATED",
+    )
+
+    started_at: Mapped[datetime | None] = mapped_column(
+        DateTime,
+        nullable=True,
+    )
+
+    completed_at: Mapped[datetime | None] = mapped_column(
+        DateTime,
+        nullable=True,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=datetime.utcnow,
+        nullable=False,
+    )
+
+    incident: Mapped["Incident"] = relationship(
+        back_populates="investigations"
     )
