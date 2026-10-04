@@ -1,4 +1,5 @@
 from datetime import datetime
+from sqlalchemy import JSON
 
 from sqlalchemy import DateTime, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -88,3 +89,4 @@ class Incident(Base):
     project: Mapped["Project"] = relationship(
         back_populates="incidents"
     )
+    

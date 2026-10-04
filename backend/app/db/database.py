@@ -1,15 +1,11 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
-
-DATABASE_URL = (
-    "postgresql+psycopg://"
-    "traceforge:traceforge@localhost:5432/traceforge"
-)
+from app.config import settings
 
 
 engine = create_engine(
-    DATABASE_URL,
+    settings.database_url,
     echo=False,
 )
 

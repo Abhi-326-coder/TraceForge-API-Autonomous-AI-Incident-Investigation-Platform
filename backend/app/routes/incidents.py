@@ -35,13 +35,10 @@ def create_incident(
             detail="Project not found",
         )
 
-    incident_count = (
-        db.query(Incident)
-        .count()
-    )
+    incident_count = db.query(Incident).count()
 
     external_id = f"INC-{incident_count + 1:03d}"
-
+    
     new_incident = Incident(
         external_id=external_id,
         title=incident.title,
