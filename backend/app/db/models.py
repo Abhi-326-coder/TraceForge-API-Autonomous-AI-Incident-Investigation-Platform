@@ -90,3 +90,41 @@ class Incident(Base):
         back_populates="incidents"
     )
     
+class ProjectConnection(Base):
+    __tablename__ = "project_connections"
+
+    id: Mapped[int] = mapped_column(
+        primary_key=True,
+        autoincrement=True,
+    )
+
+    project_id: Mapped[int] = mapped_column(
+        ForeignKey("projects.id"),
+        nullable=False,
+    )
+
+    connection_type: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+    )
+
+    provider: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+    )
+
+    config: Mapped[dict] = mapped_column(
+        JSON,
+        nullable=False,
+        default=dict,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=datetime.utcnow,
+        nullable=False,
+    )
+
+    project: Mapped["Project"] = relationship(
+        back_populates="connections"
+    )
