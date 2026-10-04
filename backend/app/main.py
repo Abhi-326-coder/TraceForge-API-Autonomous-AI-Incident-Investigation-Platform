@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 
+from app.routes.connections import router as connections_router
 from app.routes.incidents import router as incidents_router
 from app.routes.projects import router as projects_router
 
@@ -13,6 +14,7 @@ app = FastAPI(
 
 app.include_router(projects_router)
 app.include_router(incidents_router)
+app.include_router(connections_router)
 
 
 @app.get("/health")
