@@ -6,6 +6,7 @@ from app.routes.projects import router as projects_router
 from app.routes.investigations import (
     router as investigations_router,
 )
+from app.routes.evidence import router as evidence_router
 
 app = FastAPI(
     title="TraceForge API",
@@ -18,6 +19,7 @@ app.include_router(projects_router)
 app.include_router(incidents_router)
 app.include_router(connections_router)
 app.include_router(investigations_router)
+app.include_router(evidence_router)
 
 @app.get("/health")
 def health_check():
