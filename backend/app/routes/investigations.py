@@ -8,6 +8,8 @@ from app.services.investigation_service import (
     create_investigation,
     start_investigation,
 )
+from app.services.agent_service import run_log_agent
+from app.schemas.finding import Finding
 
 
 router = APIRouter(
@@ -67,4 +69,41 @@ def list_investigations(
             Investigation.incident_id == incident_id
         )
         .all()
+    )
+    
+@router.post(
+    "/{incident_id}/investigate/logs",
+    response_model=Finding,
+)
+def investigate_logs(
+    incident_id: int,
+    db: Session = Depends(get_db),
+):
+    incident = db.get(Incident, incident_id)
+
+    if not incident:
+        raise HTTPException(
+            status_code=404,
+            detail="Incident not found",
+        )
+
+    investigation = (
+        db.query(Investigation)
+        .filter(
+            Investigation.incident_id == incident_id
+        )
+        .order_by(Investigation.id.desc())
+        .first()
+    )
+
+    if not investigation:
+        raise HTTPException(
+            status_code=404,
+            detail="Investigation not found",
+        )
+
+    return run_log_agent(
+        db=db,
+        incident=incident,
+        investigation=investigation,
     )
