@@ -10,6 +10,9 @@ from app.services.investigation_service import (
 )
 from app.services.agent_service import run_log_agent
 from app.schemas.finding import Finding
+from app.services.agent_service import (
+    run_gemini_log_agent,
+)
 
 
 router = APIRouter(
@@ -107,3 +110,25 @@ def investigate_logs(
         incident=incident,
         investigation=investigation,
     )
+    
+@router.post(
+    "/{incident_id}/investigate/gemini"
+)
+def investigate_with_gemini(
+    incident_id: int,
+    db: Session = Depends(get_db),
+):
+    incident = db.get(Incident, incident_id)
+
+    if not incident:
+        raise HTTPException(
+            status_code=404,
+            detail="Incident not found",
+        )
+
+    return {
+        "incident_id": incident.id,
+        "result": run_gemini_log_agent(
+            incident=incident,
+        ),
+    }
