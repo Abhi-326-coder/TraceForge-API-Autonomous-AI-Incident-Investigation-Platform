@@ -11,10 +11,14 @@ class Settings(BaseSettings):
     gemini_api_key: str
     gemini_model: str = "gemini-3.8-flash"
 
+    github_token: str
+    github_mcp_url: str = (
+        "https://api.githubcopilot.com/mcp/readonly"
+    )
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
     )
-
-
+    
 settings = Settings()
