@@ -98,3 +98,54 @@ To run the logs_server
 To see the developement workflow of logs_mcp
 - $env:PYTHONPATH = (Get-Location).Path
 - mcp dev app\mcp\logs_server.py
+
+17.13 Convert Logs MCP to HTTP
+
+At the bottom of:
+
+app/mcp/logs_server.py
+
+change:
+
+if __name__ == "__main__":
+    mcp.run(
+        transport="stdio"
+    )
+
+to:
+
+if __name__ == "__main__":
+    mcp.run(
+        transport="streamable-http",
+        host="127.0.0.1",
+        port=8100,
+    )
+
+Now:
+
+Logs MCP Server
+       │
+       │ HTTP
+       ▼
+http://127.0.0.1:8100/mcp
+
+The SDK's MCPServer.run("streamable-http") starts the Streamable HTTP server, while streamable_http_app() can also be mounted into an existing ASGI application.
+
+17.14 Run it
+
+Terminal 1:
+
+cd backend
+
+python -m app.mcp.logs_server
+
+You now have:
+
+MCP Server
+localhost:8100
+
+with:
+
+/mcp
+
+as the MCP endpoint.

@@ -1,14 +1,12 @@
-from simulator.main import get_metrics
+from app.providers.metrics import MetricsProvider
+from app.providers.simulator_metrics import SimulatorMetricsProvider
 
 
 def get_service_metrics(
+    provider: MetricsProvider,
     service: str,
-):
-    metrics = get_metrics(service)
+) -> dict:
 
-    if not metrics:
-        raise ValueError(
-            f"No metrics found for service: {service}"
-        )
-
-    return metrics
+    return provider.get_metrics(
+        service=service
+    )
