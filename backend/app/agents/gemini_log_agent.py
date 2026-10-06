@@ -13,37 +13,33 @@ class GeminiLogAgent:
     def __init__(self):
         self.gemini = GeminiClient()
 
-    def investigate(self, incident: Incident):
+    def investigate(self, incident: dict):
 
         prompt = f"""
 You are a production incident investigation agent.
 
-Investigate the following software incident.
+Investigate this incident.
 
-Incident:
-ID: {incident.external_id}
-Title: {incident.title}
-Description: {incident.description}
-Service: {incident.service}
-Severity: {incident.severity}
+Incident ID:
+{incident["external_id"]}
 
-Your job is to investigate the incident using available tools.
+Title:
+{incident["title"]}
 
-Rules:
-1. Search logs when runtime evidence is needed.
-2. Decide yourself what queries are useful.
-3. You may call the same tool multiple times with different queries.
-4. Do not invent evidence.
-5. Base your conclusion only on tool results.
-6. Once you have enough evidence, stop investigating.
+Description:
+{incident["description"]}
 
-Return a concise investigation summary containing:
-- probable root cause
-- supporting evidence
-- confidence
-- recommended next investigation step
+Service:
+{incident["service"]}
 
-Do not claim certainty if the evidence is insufficient.
+Severity:
+{incident["severity"]}
+
+Use the available tools to investigate the incident.
+
+Do not invent evidence.
+
+Return a concise investigation summary.
 """
 
         interaction = self.gemini.client.interactions.create(
