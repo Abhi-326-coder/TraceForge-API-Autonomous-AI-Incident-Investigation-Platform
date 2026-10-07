@@ -16,7 +16,12 @@ from app.services.agent_service import (
 from app.services.root_cause_service import (
     run_root_cause_analysis
 )
+import asyncio
+import json
 
+from fastapi.responses import StreamingResponse
+
+from app.services.event_bus import event_service
 
 router = APIRouter(
     prefix="/api/incidents",
@@ -179,3 +184,46 @@ def analyze_root_cause(
     )
 
     return result
+
+@router.get(
+    "/{investigation_id}/events"
+)
+async def investigation_events(
+    investigation_id: int,
+):
+
+    async def event_stream():
+
+        sent = 0
+
+        while True:
+
+            events = event_service.get_events(
+                investigation_id
+            )
+
+            while sent < len(events):
+
+                event = events[sent]
+
+                payload = (
+                    event.model_dump_json()
+                )
+
+                yield (
+                    f"event: {event.event_type}\n"
+                    f"data: {payload}\n\n"
+                )
+
+                sent += 1
+
+            await asyncio.sleep(0.5)
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+        },
+    )
