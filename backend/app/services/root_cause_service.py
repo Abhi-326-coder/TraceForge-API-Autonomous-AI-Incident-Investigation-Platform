@@ -38,6 +38,25 @@ def run_root_cause_analysis(
 
     agent = RootCauseAgent()
 
-    return agent.analyze(
+    result = agent.analyze(
         evidence=evidence
     )
+
+    valid_ids = {
+        item["id"]
+        for item in evidence
+    }
+
+    invalid_ids = [
+        evidence_id
+        for evidence_id in result.evidence_ids
+        if evidence_id not in valid_ids
+    ]
+
+    if invalid_ids:
+        raise ValueError(
+            "Root Cause Agent referenced invalid "
+            f"evidence IDs: {invalid_ids}"
+        )
+
+    return result

@@ -13,6 +13,9 @@ from app.schemas.finding import Finding
 from app.services.agent_service import (
     run_gemini_log_agent,
 )
+from app.services.root_cause_service import (
+    run_root_cause_analysis
+)
 
 
 router = APIRouter(
@@ -132,3 +135,47 @@ def investigate_with_gemini(
             incident=incident,
         ),
     }
+    
+@router.post(
+    "/{incident_id}/root-cause",
+)
+def analyze_root_cause(
+    incident_id: int,
+    db: Session = Depends(get_db),
+):
+
+    incident = db.get(
+        Incident,
+        incident_id,
+    )
+
+    if not incident:
+        raise HTTPException(
+            status_code=404,
+            detail="Incident not found",
+        )
+
+    investigation = (
+        db.query(Investigation)
+        .filter(
+            Investigation.incident_id
+            == incident_id
+        )
+        .order_by(
+            Investigation.id.desc()
+        )
+        .first()
+    )
+
+    if not investigation:
+        raise HTTPException(
+            status_code=404,
+            detail="Investigation not found",
+        )
+
+    result = run_root_cause_analysis(
+        db=db,
+        investigation_id=investigation.id,
+    )
+
+    return result
