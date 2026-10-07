@@ -154,3 +154,38 @@ class KnowledgeDocument(Base):
 - Add the seeded data in``` scripts/seed_knowledge.py``` and it is tested and working well
 
 - Added the ``test_rag.py`` to test Knowledge and is working properly
+
+- Add the ``knowledge_server.py`` 
+
+ ```bash
+                           INCIDENT
+                              │
+                              ▼
+                         SUPERVISOR
+                              │
+         ┌────────────────────┼───────────────────┐
+         ▼                    ▼                   ▼
+      LOG AGENT          METRICS AGENT        CODE AGENT
+         │                    │                   │
+      Logs MCP             Metrics MCP        GitHub MCP
+         │                    │                   │
+         ▼                    ▼                   ▼
+      Logs                 Metrics             Source
+                                                   │
+         └────────────────────┬────────────────────┘
+                              ▼
+                         KNOWLEDGE MCP
+                              │
+                              ▼
+                           pgvector
+                              │
+                       ┌──────┼──────┐
+                       ▼      ▼      ▼
+                    Runbooks Docs Postmortems
+                              │
+                              ▼
+                          EVIDENCE
+                              │
+                              ▼
+                      ROOT CAUSE AGENT
+```
