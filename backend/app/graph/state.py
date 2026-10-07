@@ -14,12 +14,16 @@ class InvestigationState(TypedDict, total=False):
 
     incident: IncidentData
 
-    logs: list[dict]
+    evidence: list[dict]
 
     findings: list[dict]
 
     tool_calls: list[dict]
 
-    next_action: str
+    investigation_plan: list[str]
+
+    next_agent: str
+
+    investigation_complete: bool
 
     final_finding: dict
