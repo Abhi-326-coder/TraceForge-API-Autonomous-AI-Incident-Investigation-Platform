@@ -1,5 +1,8 @@
 from app.agents.gemini_log_agent import GeminiLogAgent
 from app.agents.supervisor_agent import SupervisorAgent
+from app.agents.root_cause_agent import (
+    RootCauseAgent,
+)
 
 def log_investigation_node(state):
     
@@ -104,4 +107,19 @@ def advance_investigation_node(state):
     return {
         "next_agent": None,
         "investigation_complete": True,
+    }
+    
+def root_cause_node(state):
+
+    agent = RootCauseAgent()
+
+    result = agent.analyze(
+        evidence=state.get(
+            "evidence",
+            [],
+        )
+    )
+
+    return {
+        "final_finding": result.model_dump()
     }
