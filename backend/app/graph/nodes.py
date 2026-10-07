@@ -3,6 +3,7 @@ from app.agents.supervisor_agent import SupervisorAgent
 from app.agents.root_cause_agent import (
     RootCauseAgent,
 )
+from app.services.event_bus import event_service
 
 def log_investigation_node(state):
     
@@ -23,15 +24,42 @@ def log_investigation_node(state):
     
 def supervisor_node(state):
 
+    investigation_id = state.get(
+        "investigation_id"
+    )
+
+    event_service.publish(
+        investigation_id=investigation_id,
+        event_type="supervisor_started",
+        message="Supervisor started investigation planning.",
+        agent="supervisor",
+    )
+
     supervisor = SupervisorAgent()
 
     plan = supervisor.create_plan(
         incident=state["incident"]
     )
 
+    event_service.publish(
+        investigation_id=investigation_id,
+        event_type="supervisor_completed",
+        message=(
+            "Supervisor created investigation plan."
+        ),
+        agent="supervisor",
+        data={
+            "plan": plan,
+        },
+    )
+
     return {
         "investigation_plan": plan,
-        "next_agent": plan[0] if plan else None,
+        "next_agent": (
+            plan[0]
+            if plan
+            else None
+        ),
         "investigation_complete": not bool(plan),
     }
 
