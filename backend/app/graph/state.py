@@ -12,6 +12,8 @@ class IncidentData(TypedDict):
 
 class InvestigationState(TypedDict, total=False):
 
+    investigation_id: int
+
     incident: IncidentData
 
     evidence: list[dict]

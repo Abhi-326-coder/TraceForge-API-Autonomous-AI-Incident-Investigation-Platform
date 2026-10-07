@@ -6,11 +6,29 @@ from app.agents.root_cause_agent import (
 from app.services.event_bus import event_service
 
 def log_investigation_node(state):
-    
+
+    investigation_id = state[
+        "investigation_id"
+    ]
+
+    event_service.publish(
+        investigation_id=investigation_id,
+        event_type="agent_started",
+        message="Log Agent started investigation.",
+        agent="log_agent",
+    )
+
     agent = GeminiLogAgent()
 
     result = agent.investigate(
         incident=state["incident"]
+    )
+
+    event_service.publish(
+        investigation_id=investigation_id,
+        event_type="agent_completed",
+        message="Log Agent completed investigation.",
+        agent="log_agent",
     )
 
     return {
@@ -139,6 +157,17 @@ def advance_investigation_node(state):
     
 def root_cause_node(state):
 
+    investigation_id = state[
+        "investigation_id"
+    ]
+
+    event_service.publish(
+        investigation_id=investigation_id,
+        event_type="root_cause_started",
+        message="Root Cause Agent started analysis.",
+        agent="root_cause_agent",
+    )
+
     agent = RootCauseAgent()
 
     result = agent.analyze(
@@ -146,6 +175,17 @@ def root_cause_node(state):
             "evidence",
             [],
         )
+    )
+
+    event_service.publish(
+        investigation_id=investigation_id,
+        event_type="root_cause_completed",
+        message="Root cause identified.",
+        agent="root_cause_agent",
+        data={
+            "root_cause": result.root_cause,
+            "confidence": result.confidence,
+        },
     )
 
     return {
