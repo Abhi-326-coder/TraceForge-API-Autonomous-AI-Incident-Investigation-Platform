@@ -1,9 +1,11 @@
 from datetime import datetime
 from sqlalchemy import JSON
 
-from sqlalchemy import DateTime, ForeignKey, String, Text
+from sqlalchemy import DateTime, ForeignKey, String, Text, Integer, Column, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-
+from pgvector.sqlalchemy import (
+    Vector,
+)
 from app.db.database import Base
 
 
@@ -237,3 +239,48 @@ class Evidence(Base):
         back_populates="evidence",
     )
 
+class KnowledgeDocument(Base):
+
+    __tablename__ = "knowledge_documents"
+
+    id = Column(
+        Integer,
+        primary_key=True,
+    )
+
+    project_id = Column(
+        Integer,
+        ForeignKey("projects.id"),
+        nullable=False,
+    )
+
+    title = Column(
+        String,
+        nullable=False,
+    )
+
+    content = Column(
+        Text,
+        nullable=False,
+    )
+
+    source = Column(
+        String,
+        nullable=False,
+    )
+
+    chunk_index = Column(
+        Integer,
+        nullable=False,
+    )
+
+    embedding = Column(
+        Vector(768),
+        nullable=False,
+    )
+
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        server_default=func.now(),
+    )
