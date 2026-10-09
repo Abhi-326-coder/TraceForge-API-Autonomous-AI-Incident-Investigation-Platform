@@ -31,6 +31,14 @@ class SandboxRunner:
     ) -> SandboxResult:
         if not source_files:
             raise ValueError("Sandbox workspace cannot be empty")
+        
+        print("----------------------------------INPUT DETAILS--------------------------------------")
+        
+        print("SOURCE FILES : ",source_files)
+        print("TEST COMMANDS : ",test_command)
+        
+        print("-------------------------------------------------------------------------------------")
+
 
         # Never accept an arbitrary shell string from an LLM.
         # This initial runner only permits pytest or unittest.
@@ -47,9 +55,14 @@ class SandboxRunner:
             prefix="traceforge-sandbox-"
         ) as temporary_dir:
             workspace = Path(temporary_dir).resolve()
+            
+            print("WORKSPACE PATH : ", workspace)
 
             for relative_path, content in source_files.items():
                 path = Path(relative_path)
+                
+                print("PATH : ",path)
+                print("CONTENT : ",content)
 
                 if (
                     path.is_absolute()
@@ -61,6 +74,8 @@ class SandboxRunner:
                     )
 
                 destination = (workspace / path).resolve()
+                
+                print("DESTINATION : ", destination)
 
                 if not destination.is_relative_to(workspace):
                     raise ValueError(
@@ -88,7 +103,7 @@ class SandboxRunner:
                 "--security-opt", "no-new-privileges",
                 "--user", "65534:65534",
                 "--mount",
-                f"type=bind,src={workspace},dst=/workspace,rw",
+                f"type=bind,src={workspace},dst=/workspace",
                 "--workdir", "/workspace",
                 SANDBOX_IMAGE,
                 *test_command,
