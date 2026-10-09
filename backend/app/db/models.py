@@ -284,3 +284,40 @@ class KnowledgeDocument(Base):
         nullable=False,
         server_default=func.now(),
     )
+
+
+class PatchApproval(Base):
+    __tablename__ = "patch_approvals"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    investigation_id = Column(
+        Integer,
+        ForeignKey("investigations.id"),
+        nullable=False,
+        index=True,
+    )
+
+    patch_summary = Column(Text, nullable=False)
+    diff = Column(Text, nullable=False)
+    changed_files = Column(JSON, nullable=False)
+    tests_to_run = Column(JSON, nullable=False)
+    risks = Column(JSON, nullable=False)
+
+    status = Column(
+        String(20),
+        nullable=False,
+        default="PENDING",
+        index=True,
+    )
+
+    decision_note = Column(Text, nullable=True)
+    decided_by = Column(String(255), nullable=True)
+
+    created_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+    decided_at = Column(DateTime(timezone=True), nullable=True)
