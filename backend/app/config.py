@@ -1,5 +1,5 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
-
+from pydantic import Field
 
 class Settings(BaseSettings):
     database_url: str
@@ -11,7 +11,9 @@ class Settings(BaseSettings):
     gemini_api_key: str
     gemini_model: str = "gemini-3.8-flash"
 
-    github_token: str
+    github_token: str = Field(
+        validation_alias="GITHUB_PERSONAL_ACCESS_TOKEN"
+    )
     github_mcp_url: str = (
         "https://api.githubcopilot.com/mcp/readonly"
     )
@@ -19,6 +21,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
+        extra="ignore"
     )
     
 settings = Settings()
