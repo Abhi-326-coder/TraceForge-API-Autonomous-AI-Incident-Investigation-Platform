@@ -4,6 +4,8 @@ from sqlalchemy.orm import Session
 
 from app.db.models import Investigation, PatchApproval
 
+import hashlib
+import json
 
 def create_patch_approval(
     db: Session,
