@@ -2,6 +2,9 @@ from fastapi import FastAPI, HTTPException
 
 
 from app.services.event_bus import event_service
+from app.routes.investigation_jobs import (
+    router as investigation_jobs_router
+)
 
 from app.routes.connections import router as connections_router
 from app.routes.incidents import router as incidents_router
@@ -29,6 +32,7 @@ app.include_router(evidence_router)
 app.include_router(approvals_router)
 app.include_router(github_branches_router)
 app.include_router(github_prs_router)
+app.include_router(investigation_jobs_router)
 
 @app.get("/health")
 def health_check():
