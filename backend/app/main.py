@@ -1,4 +1,7 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
+
+
+from app.services.event_bus import event_service
 
 from app.routes.connections import router as connections_router
 from app.routes.incidents import router as incidents_router
@@ -33,3 +36,17 @@ def health_check():
         "status": "healthy",
         "service": "traceforge-api",
     }
+    
+@app.get("/health/redis")
+def redis_health_check():
+    try:
+        event_service.health_check()
+        return {
+            "status":"healthy",
+            "service":"traceforge-redis"
+        }
+    except Exception as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="Redis is unavailable",
+        ) from exc
