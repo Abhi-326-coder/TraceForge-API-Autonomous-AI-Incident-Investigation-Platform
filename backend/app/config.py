@@ -10,6 +10,8 @@ class Settings(BaseSettings):
 
     gemini_api_key: str
     gemini_model: str = "gemini-3.8-flash"
+    
+    redis_url: str = "redis://localhost:6379/0"
 
     github_token: str = Field(
         validation_alias="GITHUB_PERSONAL_ACCESS_TOKEN"
