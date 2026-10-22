@@ -2,6 +2,8 @@ from celery import Celery
 
 from app.config import settings
 
+# To start the celery worker :
+# celery -A app.worker:celery_app worker --loglevel=info --pool=solo
 
 celery_app = Celery(
     "traceforge",

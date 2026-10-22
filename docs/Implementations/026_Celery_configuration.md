@@ -41,3 +41,9 @@ celery_app.conf.update(
 - Create the background task in tasks/investigation_tasks.py
 
 - services/investigation_worker_service.py
+
+- Start the worker :
+
+```bash
+celery -A app.worker:celery_app worker --loglevel=info
+ ```   

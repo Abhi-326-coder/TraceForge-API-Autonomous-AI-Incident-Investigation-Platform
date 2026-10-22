@@ -29,3 +29,7 @@ def run_investigation_task(
         # will distinguish transient provider errors from permanent
         # workflow or validation errors.
         raise self.retry(exc=exc)
+    
+@celery_app.task(name="traceforge.health_check")
+def health_check_task()->dict:
+    return {"status":"healthy"}
