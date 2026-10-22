@@ -327,3 +327,42 @@ class PatchApproval(Base):
     github_commit_sha = Column(String(40), nullable=True)
     github_pr_number = Column(Integer, nullable=True)
     github_pr_url = Column(String(500), nullable=True)
+    
+class AgentMemory(Base):
+    __tablename__ = "agent_memories"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    project_id = Column(
+        Integer,
+        ForeignKey("projects.id"),
+        nullable=False,
+        index=True,
+    )
+
+    investigation_id = Column(
+        Integer,
+        ForeignKey("investigations.id"),
+        nullable=True,
+        index=True,
+    )
+
+    memory_type = Column(String(50), nullable=False)
+    title = Column(String(255), nullable=False)
+    summary = Column(Text, nullable=False)
+
+    # Structured context: evidence IDs, symptoms, services, outcomes.
+    details = Column(JSON, nullable=False, default=dict)
+
+    # Whether the claimed remediation outcome has been verified.
+    outcome_status = Column(
+        String(30),
+        nullable=False,
+        default="UNKNOWN",
+    )
+
+    created_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
