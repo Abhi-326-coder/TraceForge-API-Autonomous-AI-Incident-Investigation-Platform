@@ -11,6 +11,10 @@ class Settings(BaseSettings):
     gemini_api_key: str
     gemini_model: str = "gemini-3.8-flash"
     
+    jwt_secret_key: str
+    jwt_algorithm: str = "HS256"
+    access_token_expire_minutes: int = 30
+    
     redis_url: str = "redis://localhost:6379/0"
 
     github_token: str = Field(
