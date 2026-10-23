@@ -8,6 +8,7 @@ from app.schemas.patch import (
     GeneratedPatch,
     PatchGenerationResult,
 )
+from app.guardrails.validators import validate_repository_path
 
 
 class PatchAgent:
@@ -85,6 +86,9 @@ Return a structured PatchGenerationResult.
         proposed_by_path = {}
 
         for modified_file in result.modified_files:
+            modified_file.file_path = validate_repository_path(
+                modified_file.file_path
+            )
             path = modified_file.file_path
 
             self._validate_path(path)
