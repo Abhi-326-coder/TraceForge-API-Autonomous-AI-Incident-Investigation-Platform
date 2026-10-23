@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 
 from app.db.database import SessionLocal
 from app.db.models import Investigation
-
+from app.graph.runtime import investigation_graph_runtime
 
 def execute_investigation(
     investigation_id: int,
@@ -87,3 +87,21 @@ def execute_investigation(
 
     finally:
         db.close()
+        
+def run_graph_for_investigation(
+    investigation_id: int,
+    initial_state: dict,
+):
+    config = {
+        "configurable": {
+            "thread_id": f"investigation-{investigation_id}"
+        }
+    }
+
+    with investigation_graph_runtime() as graph:
+        result = graph.invoke(
+            initial_state,
+            config=config,
+        )
+
+    return result

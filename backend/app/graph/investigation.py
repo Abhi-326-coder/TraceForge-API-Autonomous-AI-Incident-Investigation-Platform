@@ -9,7 +9,6 @@ from app.graph.nodes import (
     code_investigation_node,
     route_after_supervisor
 )
-from app.graph.checkpointer import get_checkpointer as checkpointer
 
 def route_after_agent(state):
 
@@ -34,7 +33,7 @@ def route_after_agent(state):
     return "end"
 
 
-def build_investigation_graph():
+def build_investigation_graph(checkpointer):
     
     graph = StateGraph(
         InvestigationState
@@ -121,5 +120,5 @@ def build_investigation_graph():
         },
     )
 
-    builder = graph.compile(checkpointer=checkpointer)
+    return graph.compile(checkpointer=checkpointer)
     
