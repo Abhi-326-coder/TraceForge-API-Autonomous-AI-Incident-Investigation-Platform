@@ -1,27 +1,46 @@
 from datetime import datetime, timezone
 
 from app.db.database import SessionLocal
-from app.db.models import Investigation
+from app.db.models import (Investigation, Incident)
 from app.graph.runtime import investigation_graph_runtime
 
-def execute_investigation(
-    investigation_id: int,
-) -> dict:
+def utc_now():
+    return datetime.now(timezone.utc)
+
+
+def build_initial_state(incident, investigation):
+    """Create the initial state expected by InvestigationState."""
+    return {
+        "investigation_id": investigation.id,
+        "incident": {
+            "id": incident.id,
+            "external_id": incident.external_id,
+            "title": incident.title,
+            "description": incident.description,
+            "service": incident.service,
+            "severity": incident.severity,
+        },
+        "evidence": [],
+        "findings": [],
+        "tool_calls": [],
+        "investigation_plan": [],
+        "next_agent": "",
+        "investigation_complete": False,
+        "final_finding": {},
+    }
+
+
+def execute_investigation(investigation_id: int) -> dict:
     db = SessionLocal()
 
     try:
-        investigation = db.get(
-            Investigation,
-            investigation_id,
-        )
+        investigation = db.get(Investigation, investigation_id)
 
         if investigation is None:
             raise ValueError(
                 f"Investigation {investigation_id} not found"
             )
 
-        # Prevent an ordinary duplicate task from starting a
-        # completed investigation again.
         if investigation.status == "COMPLETED":
             return {
                 "investigation_id": investigation_id,
@@ -29,58 +48,73 @@ def execute_investigation(
                 "message": "Investigation already completed.",
             }
 
+        incident = db.get(Incident, investigation.incident_id)
+
+        if incident is None:
+            raise ValueError(
+                f"Incident for investigation {investigation_id} "
+                "was not found"
+            )
+
         investigation.status = "RUNNING"
         investigation.started_at = (
-            investigation.started_at
-            or datetime.now(timezone.utc)
+            investigation.started_at or utc_now()
         )
         db.commit()
 
-        # IMPORTANT:
-        # Connect your existing compiled LangGraph graph here.
-        #
-        # Use the actual graph object/function from your project.
-        # Do not create a second graph just for Celery.
-        #
-        # Example integration shape:
-        #
-        # graph = get_compiled_investigation_graph()
-        # result = graph.invoke(existing_initial_state)
-        #
-        # The initial state must include the fields required by
-        # your current InvestigationState TypedDict.
-
-        raise NotImplementedError(
-            "Connect the existing LangGraph graph and initial "
-            "state here before running background investigations."
+        initial_state = build_initial_state(
+            incident, investigation
         )
 
-    except NotImplementedError:
+        # Reuse the same LangGraph checkpoint thread on retries.
+        config = {
+            "configurable": {
+                "thread_id": f"investigation-{investigation_id}"
+            }
+        }
+
+        with investigation_graph_runtime() as graph:
+            snapshot = graph.get_state(config)
+
+            if snapshot and snapshot.next:
+                # A previous execution stopped mid-graph.
+                result = graph.invoke(None, config=config)
+            elif (
+                snapshot
+                and snapshot.values
+                and snapshot.values.get("investigation_complete")
+            ):
+                # The graph may have finished before the database
+                # status was updated.
+                result = snapshot.values
+            else:
+                result = graph.invoke(
+                    initial_state, config=config
+                )
+
         investigation = db.get(
-            Investigation,
-            investigation_id,
+            Investigation, investigation_id
         )
-        if investigation is not None:
-            investigation.status = "FAILED"
-            investigation.completed_at = datetime.now(
-                timezone.utc
-            )
-            db.commit()
-        raise
+        investigation.status = "COMPLETED"
+        investigation.completed_at = utc_now()
+        db.commit()
+
+        return {
+            "investigation_id": investigation_id,
+            "status": "COMPLETED",
+            "result": result,
+        }
 
     except Exception:
         db.rollback()
 
         investigation = db.get(
-            Investigation,
-            investigation_id,
+            Investigation, investigation_id
         )
 
         if investigation is not None:
             investigation.status = "FAILED"
-            investigation.completed_at = datetime.now(
-                timezone.utc
-            )
+            investigation.completed_at = utc_now()
             db.commit()
 
         raise
