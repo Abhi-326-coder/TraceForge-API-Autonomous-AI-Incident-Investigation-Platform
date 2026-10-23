@@ -1,7 +1,7 @@
 from datetime import datetime
 from sqlalchemy import JSON
 
-from sqlalchemy import DateTime, ForeignKey, String, Text, Integer, Column, func
+from sqlalchemy import DateTime, ForeignKey, String, Text, Integer, Column, func, Boolean
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from pgvector.sqlalchemy import (
     Vector,
@@ -365,4 +365,21 @@ class AgentMemory(Base):
         DateTime(timezone=True),
         nullable=False,
         server_default=func.now(),
+    )
+    
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(
+        String(320), unique=True, index=True, nullable=False
+    )
+    password_hash = Column(String(255), nullable=False)
+    is_active = Column(Boolean, default=True, nullable=False)
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
     )
