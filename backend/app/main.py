@@ -18,6 +18,10 @@ from app.routes.approvals import router as approvals_router
 from app.routes.github_branches import router as github_branches_router
 from app.routes.github_prs import router as github_prs_router
 
+from app.routes.auth import router as auth_router
+from app.security import get_current_user
+from fastapi import Depends
+
 app = FastAPI(
     title="TraceForge API",
     description="Autonomous AI Incident Investigation Platform",
@@ -25,16 +29,48 @@ app = FastAPI(
 )
 
 
-app.include_router(projects_router)
-app.include_router(incidents_router)
-app.include_router(connections_router)
-app.include_router(investigations_router)
-app.include_router(evidence_router)
-app.include_router(approvals_router)
-app.include_router(github_branches_router)
-app.include_router(github_prs_router)
-app.include_router(investigation_jobs_router)
-app.include_router(memories_router)
+app.include_router(
+    projects_router,
+    dependencies=[Depends(get_current_user)],
+)
+
+app.include_router(
+    incidents_router,
+    dependencies=[Depends(get_current_user)],
+)
+app.include_router(
+    connections_router,
+    dependencies=[Depends(get_current_user)],
+)
+app.include_router(
+    investigations_router,
+    dependencies=[Depends(get_current_user)],
+)
+app.include_router(
+    evidence_router,
+    dependencies=[Depends(get_current_user)],
+)
+app.include_router(
+    approvals_router,
+    dependencies=[Depends(get_current_user)],    
+)
+app.include_router(
+    github_branches_router,
+    dependencies=[Depends(get_current_user)],   
+)
+app.include_router(
+    github_prs_router,
+    dependencies=[Depends(get_current_user)],
+)
+app.include_router(
+    investigation_jobs_router,
+    dependencies=[Depends(get_current_user)],
+)
+app.include_router(
+    memories_router,
+    dependencies=[Depends(get_current_user)],
+)
+app.include_router(auth_router)
 
 @app.get("/health")
 def health_check():
