@@ -16,7 +16,6 @@ class PatchApprovalCreate(BaseModel):
 class ApprovalDecision(BaseModel):
     decision: Literal["APPROVED", "REJECTED"]
     note: str = Field(default="", max_length=2000)
-    decided_by: str = Field(min_length=1, max_length=255)
 
 
 class PatchApprovalResponse(BaseModel):

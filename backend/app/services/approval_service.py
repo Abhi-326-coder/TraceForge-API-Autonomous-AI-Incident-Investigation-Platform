@@ -6,13 +6,16 @@ from datetime import datetime, timezone
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from app.db.models import PatchApproval, Investigation
+from app.db.models import PatchApproval, User
 from app.schemas.approval import (
     ApprovalDecision,
     PatchApprovalCreate,
 )
 from app.services.audit_service import record_audit_event
-from app.services.authorization_service import get_owned_investigation
+from app.services.authorization_service import (
+    get_owned_investigation,
+    get_owned_patch,
+)
 
 
 def utc_now() -> datetime:
@@ -47,7 +50,7 @@ def create_patch_approval(
     db: Session,
     payload: PatchApprovalCreate,
     *,
-    current_user,
+    current_user: User,
 ) -> PatchApproval:
     """Create a pending patch approval for an owned investigation."""
 
@@ -84,8 +87,8 @@ def create_patch_approval(
 
         record_audit_event(
             db,
-            action="PATCH_APPROVED" if False else "ACCESS_DENIED",
-            outcome="FAILURE",
+            action="PATCH_CREATED",
+            outcome="SUCCESS",
             actor_user_id=current_user.id,
             resource_type="PatchApproval",
             resource_id=approval.id,
@@ -101,12 +104,23 @@ def create_patch_approval(
         raise
 
 
+def get_patch_approval(
+    db: Session,
+    patch_id: int,
+    *,
+    current_user: User,
+) -> PatchApproval:
+    """Return a patch approval if it belongs to the current user."""
+
+    return get_owned_patch(db, patch_id, current_user)
+
+
 def decide_patch_approval(
     db: Session,
     patch_id: int,
     decision: ApprovalDecision,
     *,
-    current_user,
+    current_user: User,
 ) -> PatchApproval:
     """Approve or reject a pending patch and record the decision."""
 
