@@ -1,7 +1,17 @@
 from datetime import datetime
 from sqlalchemy import JSON
 
-from sqlalchemy import DateTime, ForeignKey, String, Text, Integer, Column, func, Boolean
+from sqlalchemy import (
+    Boolean,
+    Column,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    func,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from pgvector.sqlalchemy import (
     Vector,
@@ -389,4 +399,40 @@ class User(Base):
         DateTime(timezone=True),
         server_default=func.now(),
         nullable=False,
+    )
+    
+class AuditEvent(Base):
+    __tablename__ = "audit_events"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    # Nullable because some system events have no user actor.
+    actor_user_id = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+
+    action = Column(String(100), nullable=False, index=True)
+    outcome = Column(String(30), nullable=False)
+
+    resource_type = Column(String(100), nullable=True)
+    resource_id = Column(String(100), nullable=True, index=True)
+
+    # Used to connect API requests, worker jobs and related events.
+    correlation_id = Column(String(100), nullable=True, index=True)
+
+    # Allowlisted metadata only; never store credentials or raw secrets.
+    event_metadata = Column(JSON, nullable=False, default=dict)
+
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+        index=True,
+    )
+
+    __table_args__ = (
+        Index("ix_audit_action_created", "action", "created_at"),
     )
