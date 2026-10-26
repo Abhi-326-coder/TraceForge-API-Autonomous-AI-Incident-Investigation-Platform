@@ -1,84 +1,176 @@
-from datetime import datetime, timezone
-
-from sqlalchemy.orm import Session
-
-from app.db.models import Investigation, PatchApproval
 
 import hashlib
 import json
+from datetime import datetime, timezone
+
+from fastapi import HTTPException
+from sqlalchemy.orm import Session
+
+from app.db.models import PatchApproval, Investigation
+from app.schemas.approval import (
+    ApprovalDecision,
+    PatchApprovalCreate,
+)
+from app.services.audit_service import record_audit_event
+from app.services.authorization_service import get_owned_investigation
+
+
+def utc_now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def calculate_patch_hash(
+    diff: str,
+    proposed_files: dict,
+    changed_files: list,
+) -> str:
+    """Create a deterministic hash of the approved patch payload."""
+    payload = {
+        "diff": diff,
+        "proposed_files": proposed_files,
+        "changed_files": changed_files,
+    }
+
+    canonical_payload = json.dumps(
+        payload,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+    )
+
+    return hashlib.sha256(
+        canonical_payload.encode("utf-8")
+    ).hexdigest()
+
 
 def create_patch_approval(
     db: Session,
-    investigation_id: int,
-    patch_summary: str,
-    diff: str,
-    changed_files: list[str],
-    tests_to_run: list[str],
-    risks: list[str],
+    payload: PatchApprovalCreate,
+    *,
+    current_user,
 ) -> PatchApproval:
-    investigation = db.get(Investigation, investigation_id)
+    """Create a pending patch approval for an owned investigation."""
 
-    if investigation is None:
-        raise ValueError("Investigation not found")
-
-    if not diff.strip():
-        raise ValueError("Cannot submit an empty patch")
-
-    if not changed_files:
-        raise ValueError("Patch must identify changed files")
-
-    approval = PatchApproval(
-        investigation_id=investigation_id,
-        patch_summary=patch_summary,
-        diff=diff,
-        changed_files=changed_files,
-        tests_to_run=tests_to_run,
-        risks=risks,
-        status="PENDING",
+    investigation = get_owned_investigation(
+        db,
+        payload.investigation_id,
+        current_user,
     )
 
-    db.add(approval)
-    db.commit()
-    db.refresh(approval)
+    proposed_files = payload.proposed_files or {}
+    changed_files = payload.changed_files or []
 
-    return approval
+    patch_hash = calculate_patch_hash(
+        diff=payload.diff,
+        proposed_files=proposed_files,
+        changed_files=changed_files,
+    )
 
+    approval = PatchApproval(
+        investigation_id=investigation.id,
+        patch_summary=payload.patch_summary,
+        diff=payload.diff,
+        changed_files=changed_files,
+        proposed_files=proposed_files,
+        tests_to_run=payload.tests_to_run or [],
+        risks=payload.risks or [],
+        status="PENDING",
+        patch_sha256=patch_hash,
+    )
 
-def decide_patch(
-    db: Session,
-    patch_id: int,
-    decision: str,
-    note: str,
-    decided_by: str,
-) -> PatchApproval:
-    approval = db.get(PatchApproval, patch_id)
+    try:
+        db.add(approval)
+        db.flush()
 
-    if approval is None:
-        raise ValueError("Patch approval not found")
-
-    if approval.status != "PENDING":
-        raise ValueError(
-            f"Cannot decide on a patch with status {approval.status}"
+        record_audit_event(
+            db,
+            action="PATCH_APPROVED" if False else "ACCESS_DENIED",
+            outcome="FAILURE",
+            actor_user_id=current_user.id,
+            resource_type="PatchApproval",
+            resource_id=approval.id,
+            metadata={"patch_id": approval.id},
         )
 
-    approval.status = decision
-    approval.decision_note = note
-    approval.decided_by = decided_by
-    approval.decided_at = datetime.now(timezone.utc)
+        db.commit()
+        db.refresh(approval)
+        return approval
 
-    db.commit()
-    db.refresh(approval)
-
-    return approval
+    except Exception:
+        db.rollback()
+        raise
 
 
-def get_patch_approval(
+def decide_patch_approval(
     db: Session,
     patch_id: int,
+    decision: ApprovalDecision,
+    *,
+    current_user,
 ) -> PatchApproval:
+    """Approve or reject a pending patch and record the decision."""
+
     approval = db.get(PatchApproval, patch_id)
 
     if approval is None:
-        raise ValueError("Patch approval not found")
+        raise HTTPException(
+            status_code=404,
+            detail="Patch approval not found.",
+        )
 
-    return approval
+    get_owned_investigation(
+        db,
+        approval.investigation_id,
+        current_user,
+    )
+
+    if approval.status != "PENDING":
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"Patch is already {approval.status.lower()}; "
+                "only pending patches can be decided."
+            ),
+        )
+
+    requested_decision = decision.decision.upper()
+
+    if requested_decision not in {"APPROVED", "REJECTED"}:
+        raise HTTPException(
+            status_code=422,
+            detail="Decision must be APPROVED or REJECTED.",
+        )
+
+    approval.status = requested_decision
+    approval.decision_note = decision.note
+    approval.decided_by = str(current_user.id)
+    approval.decided_at = utc_now()
+
+    action = (
+        "PATCH_APPROVED"
+        if requested_decision == "APPROVED"
+        else "PATCH_REJECTED"
+    )
+
+    try:
+        record_audit_event(
+            db,
+            action=action,
+            outcome="SUCCESS",
+            actor_user_id=current_user.id,
+            resource_type="PatchApproval",
+            resource_id=approval.id,
+            metadata={
+                "patch_id": approval.id,
+                "investigation_id": approval.investigation_id,
+            },
+        )
+
+        # Approval status and audit record share one transaction.
+        db.commit()
+        db.refresh(approval)
+        return approval
+
+    except Exception:
+        db.rollback()
+        raise

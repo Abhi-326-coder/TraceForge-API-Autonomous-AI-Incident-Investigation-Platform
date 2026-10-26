@@ -1,17 +1,8 @@
 from datetime import datetime
 from sqlalchemy import JSON
 
-from sqlalchemy import (
-    Boolean,
-    Column,
-    DateTime,
-    ForeignKey,
-    Index,
-    Integer,
-    String,
-    Text,
-    func,
-)
+from sqlalchemy import DateTime, ForeignKey, String, Text, Integer, Column, Boolean, Index
+from sqlalchemy.sql import func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from pgvector.sqlalchemy import (
     Vector,
@@ -436,3 +427,4 @@ class AuditEvent(Base):
     __table_args__ = (
         Index("ix_audit_action_created", "action", "created_at"),
     )
+    

@@ -3,13 +3,17 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.db.database import Base
-from app.db.models import Project, User
+from app.db.models import AuditEvent, Project, User
 
 
 @pytest.fixture
 def db_session():
     engine = create_engine("sqlite://")
-    tables = [User.__table__, Project.__table__]
+    tables = [
+        User.__table__,
+        Project.__table__,
+        AuditEvent.__table__,
+    ]
     Base.metadata.create_all(engine, tables=tables)
     session_factory = sessionmaker(bind=engine)
     session = session_factory()
