@@ -21,6 +21,13 @@ class Project(Base):
         String(100),
         nullable=False,
     )
+    
+    owner_id = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="RESTRICT"),
+        nullable=True,  # Transitional; see migration below.
+        index=True,
+    )
 
     description: Mapped[str | None] = mapped_column(
         Text,
