@@ -22,10 +22,26 @@ from app.routes.auth import router as auth_router
 from app.security import get_current_user
 from fastapi import Depends
 
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+from opentelemetry.instrumentation.sqlalchemy import (
+    SQLAlchemyInstrumentor,
+)
+
+from app.db.database import engine
+from app.observability.tracing import configure_tracing
+
 app = FastAPI(
     title="TraceForge API",
     description="Autonomous AI Incident Investigation Platform",
     version="0.1.0",
+)
+
+configure_tracing()
+
+FastAPIInstrumentor.instrument_app(app)
+
+SQLAlchemyInstrumentor().instrument(
+    engine=engine,
 )
 
 
