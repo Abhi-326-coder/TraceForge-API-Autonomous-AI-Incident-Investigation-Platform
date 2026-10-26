@@ -7,8 +7,9 @@ from app.schemas.connection import (
     ConnectionCreate,
     ConnectionResponse,
 )
-
-
+from app.services.authorization_service import get_owned_project
+from app.db.models import User
+from app.security import get_current_user
 router = APIRouter(
     prefix="/api/projects",
     tags=["Connections"],
@@ -23,8 +24,9 @@ def create_connection(
     project_id: int,
     connection: ConnectionCreate,
     db: Session = Depends(get_db),
+    current_user:User = Depends(get_current_user)
 ):
-    project = db.get(Project, project_id)
+    project = get_owned_project(db, project_id, current_user)
 
     if not project:
         raise HTTPException(
@@ -53,8 +55,9 @@ def create_connection(
 def list_connections(
     project_id: int,
     db: Session = Depends(get_db),
+    current_user:User =Depends(get_current_user)
 ):
-    project = db.get(Project, project_id)
+    project = get_owned_project(db, project_id, current_user)
 
     if not project:
         raise HTTPException(

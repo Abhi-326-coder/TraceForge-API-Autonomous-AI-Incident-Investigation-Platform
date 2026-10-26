@@ -2,9 +2,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
-from app.db.models import Evidence, Investigation
+from app.db.models import Evidence, Investigation, User
 from app.schemas.evidence import EvidenceResponse
-
+from app.services.authorization_service import get_owned_investigation
+from app.security import get_current_user
 
 router = APIRouter(
     prefix="/api/investigations",
@@ -19,11 +20,9 @@ router = APIRouter(
 def list_evidence(
     investigation_id: int,
     db: Session = Depends(get_db),
+    user:User = Depends(get_current_user)
 ):
-    investigation = db.get(
-        Investigation,
-        investigation_id,
-    )
+    investigation = get_owned_investigation(db, investigation_id, user)
 
     if not investigation:
         raise HTTPException(

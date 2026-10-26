@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy import select
 
 from app.db.database import get_db
-from app.db.models import Incident, Project
+from app.db.models import Incident, Project, User
 from app.schemas.incident import (
     IncidentCreate,
     IncidentResponse,
@@ -10,7 +11,8 @@ from app.schemas.incident import (
     MetricsResponse,
 )
 from simulator.main import get_logs, get_metrics
-
+from app.services.authorization_service import get_owned_project, get_owned_incident
+from app.security import get_current_user
 
 router = APIRouter(
     prefix="/api/incidents",
@@ -26,8 +28,9 @@ def create_incident(
     incident: IncidentCreate,
     project_id: int,
     db: Session = Depends(get_db),
+    current_user:User = Depends(get_current_user)
 ):
-    project = db.get(Project, project_id)
+    project = get_owned_project(db, project_id, current_user)
 
     if not project:
         raise HTTPException(
@@ -61,7 +64,7 @@ def create_incident(
     response_model=list[IncidentResponse],
 )
 def list_incidents(
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db)
 ):
     return db.query(Incident).all()
 
@@ -73,8 +76,9 @@ def list_incidents(
 def get_incident_by_id(
     incident_id: int,
     db: Session = Depends(get_db),
+    user:User = Depends(get_current_user)
 ):
-    incident = db.get(Incident, incident_id)
+    incident = get_owned_incident(db, incident_id, user)
 
     if not incident:
         raise HTTPException(
@@ -92,8 +96,9 @@ def get_incident_by_id(
 def get_incident_logs(
     incident_id: int,
     db: Session = Depends(get_db),
+    user:User = Depends(get_current_user)
 ):
-    incident = db.get(Incident, incident_id)
+    incident = get_owned_incident(db, incident_id, user)
 
     if not incident:
         raise HTTPException(
@@ -111,8 +116,9 @@ def get_incident_logs(
 def get_incident_metrics(
     incident_id: int,
     db: Session = Depends(get_db),
+    user:User = Depends(get_current_user)
 ):
-    incident = db.get(Incident, incident_id)
+    incident = get_owned_incident(db, incident_id, user)
 
     if not incident:
         raise HTTPException(

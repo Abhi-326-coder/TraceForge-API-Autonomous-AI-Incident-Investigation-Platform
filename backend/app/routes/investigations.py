@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
-from app.db.models import Incident, Investigation
+from app.db.models import Incident, Investigation, User
 from app.schemas.investigation import InvestigationResponse
 from app.services.investigation_service import (
     create_investigation,
@@ -16,6 +16,8 @@ from app.services.agent_service import (
 from app.services.root_cause_service import (
     run_root_cause_analysis
 )
+from app.security import get_current_user
+from app.services.authorization_service import get_owned_incident, get_owned_investigation
 import asyncio
 import json
 
@@ -36,8 +38,9 @@ router = APIRouter(
 def create_incident_investigation(
     incident_id: int,
     db: Session = Depends(get_db),
+    user:User = Depends()
 ):
-    incident = db.get(Incident, incident_id)
+    incident = get_owned_incident(db, incident_id, user)
 
     if not incident:
         raise HTTPException(
@@ -65,8 +68,9 @@ def create_incident_investigation(
 def list_investigations(
     incident_id: int,
     db: Session = Depends(get_db),
+    user:User = Depends()
 ):
-    incident = db.get(Incident, incident_id)
+    incident = get_owned_incident(db, incident_id, user)
 
     if not incident:
         raise HTTPException(
@@ -89,8 +93,9 @@ def list_investigations(
 def investigate_logs(
     incident_id: int,
     db: Session = Depends(get_db),
+    user:User = Depends()
 ):
-    incident = db.get(Incident, incident_id)
+    incident = get_owned_incident(db, incident_id, user)
 
     if not incident:
         raise HTTPException(
@@ -125,8 +130,9 @@ def investigate_logs(
 def investigate_with_gemini(
     incident_id: int,
     db: Session = Depends(get_db),
+    user:User = Depends()
 ):
-    incident = db.get(Incident, incident_id)
+    incident = get_owned_incident(db, incident_id, user)
 
     if not incident:
         raise HTTPException(
@@ -147,12 +153,11 @@ def investigate_with_gemini(
 def analyze_root_cause(
     incident_id: int,
     db: Session = Depends(get_db),
+    user:User = Depends()
 ):
 
-    incident = db.get(
-        Incident,
-        incident_id,
-    )
+    incident = get_owned_incident(db, incident_id, user)
+
 
     if not incident:
         raise HTTPException(
