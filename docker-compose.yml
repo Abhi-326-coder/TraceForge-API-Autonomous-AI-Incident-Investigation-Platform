@@ -1,24 +1,97 @@
 services:
   postgres:
     image: pgvector/pgvector:pg16
-    container_name: traceforge-postgres
     environment:
       POSTGRES_USER: traceforge
-      POSTGRES_PASSWORD: traceforge
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-traceforge_dev_only}
       POSTGRES_DB: traceforge
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U traceforge -d traceforge"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
 
   redis:
     image: redis:7-alpine
-    container_name: traceforge-redis
+    command: redis-server --appendonly yes
     ports:
       - "127.0.0.1:6379:6379"
-    command: redis-server --appendonly yes
     volumes:
       - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    env_file:
+      - backend/.env
+    environment:
+      DATABASE_URL: postgresql+psycopg://traceforge:${POSTGRES_PASSWORD:-traceforge_dev_only}@postgres:5432/traceforge
+      REDIS_URL: redis://redis:6379/0
+      DEBUG: "true"
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=3)"
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    command:
+      - celery
+      - -A
+      - app.worker.celery_app
+      - worker
+      - --loglevel=info
+    env_file:
+      - backend/.env
+    environment:
+      DATABASE_URL: postgresql+psycopg://traceforge:${POSTGRES_PASSWORD:-traceforge_dev_only}@postgres:5432/traceforge
+      REDIS_URL: redis://redis:6379/0
+      DEBUG: "true"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:8000
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
 
 volumes:
   postgres_data:
