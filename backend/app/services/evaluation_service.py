@@ -115,3 +115,37 @@ def evaluate_case(
         passed=passed,
         failures=failures,
     )
+
+
+
+def summarize_results(results: list) -> dict:
+    total = len(results)
+
+    if total == 0:
+        return {
+            "total_cases": 0,
+            "pass_rate": 0.0,
+            "root_cause_accuracy": 0.0,
+            "evidence_grounding_rate": 0.0,
+            "average_duration_ms": 0.0,
+            "average_tool_calls": 0.0,
+        }
+
+    return {
+        "total_cases": total,
+        "pass_rate": sum(
+            result.passed for result in results
+        ) / total,
+        "root_cause_accuracy": sum(
+            result.root_cause_match for result in results
+        ) / total,
+        "evidence_grounding_rate": sum(
+            result.evidence_grounded for result in results
+        ) / total,
+        "average_duration_ms": sum(
+            result.duration_ms for result in results
+        ) / total,
+        "average_tool_calls": sum(
+            result.tool_calls for result in results
+        ) / total,
+    }
