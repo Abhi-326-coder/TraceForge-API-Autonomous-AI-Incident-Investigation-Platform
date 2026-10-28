@@ -171,3 +171,23 @@ class AgentMetricsService:
 
 
 agent_metrics_service = AgentMetricsService()
+
+# The report at the end might look like this:
+# {
+#   "investigation_id": 123,
+#   "duration_ms": 4820.5,
+#   "agent_runs": 3,
+#   "tool_calls": 5,
+#   "tool_success_rate": 1.0,
+#   "agents": {
+#     "logs": {
+#       "runs": 1,
+#       "successes": 1,
+#       "failures": 0,
+#       "average_duration_ms": 850.0
+#     }
+#   },
+#   "root_cause_grounded": true,
+#   "approval_required": true,
+#   "approval_policy_passed": true
+# }
