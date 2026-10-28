@@ -1,3 +1,4 @@
+import os
 import subprocess
 import tempfile
 import time
@@ -50,6 +51,8 @@ class SandboxRunner:
 
         started_at = datetime.now(timezone.utc)
         start = time.monotonic()
+        container_uid = getattr(os, "getuid", lambda: 65534)()
+        container_gid = getattr(os, "getgid", lambda: 65534)()
 
         with tempfile.TemporaryDirectory(
             prefix="traceforge-sandbox-"
@@ -101,7 +104,7 @@ class SandboxRunner:
                 "--tmpfs", "/tmp:rw,noexec,nosuid,size=64m",
                 "--cap-drop", "ALL",
                 "--security-opt", "no-new-privileges",
-                "--user", "65534:65534",
+                "--user", f"{container_uid}:{container_gid}",
                 "--mount",
                 f"type=bind,src={workspace},dst=/workspace",
                 "--workdir", "/workspace",
