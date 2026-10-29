@@ -17,7 +17,7 @@ from app.routes.evidence import router as evidence_router
 from app.routes.approvals import router as approvals_router
 from app.routes.github_branches import router as github_branches_router
 from app.routes.github_prs import router as github_prs_router
-
+from app.routes.demo import router as demo_router
 from app.routes.auth import router as auth_router
 from app.security import get_current_user
 from fastapi import Depends
@@ -87,6 +87,8 @@ app.include_router(
     dependencies=[Depends(get_current_user)],
 )
 app.include_router(auth_router)
+
+app.include_router(demo_router)
 
 @app.get("/health")
 def health_check():
