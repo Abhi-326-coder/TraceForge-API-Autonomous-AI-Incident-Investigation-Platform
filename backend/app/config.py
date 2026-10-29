@@ -23,6 +23,8 @@ class Settings(BaseSettings):
     github_mcp_url: str = (
         "https://api.githubcopilot.com/mcp/readonly"
     )
+    
+    demo_mode: bool = False
 
     model_config = SettingsConfigDict(
         env_file=".env",
