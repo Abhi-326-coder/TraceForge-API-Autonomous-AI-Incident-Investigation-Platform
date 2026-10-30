@@ -24,6 +24,17 @@ def run_fixture_evaluations() -> dict:
             }
             for entry in fixture["logs"]
         ]
+        
+        metric_evidence = [
+            {
+                "id": 1000 + index,
+                "content": f"{key}: {value}",
+            }
+            for index, (key, value) in enumerate(
+                fixture["metrics"].items()
+            )
+        ]
+        evidence.extend(metric_evidence)
 
         input_data = EvaluationInput(
             case=case,
