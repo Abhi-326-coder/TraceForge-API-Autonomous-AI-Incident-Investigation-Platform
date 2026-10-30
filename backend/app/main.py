@@ -26,6 +26,9 @@ from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.instrumentation.sqlalchemy import (
     SQLAlchemyInstrumentor,
 )
+from app.routes.evaluation_dashboard import (
+    router as evaluation_dashboard_router,
+)
 
 from app.db.database import engine
 from app.observability.tracing import configure_tracing
@@ -84,6 +87,10 @@ app.include_router(
 )
 app.include_router(
     memories_router,
+    dependencies=[Depends(get_current_user)],
+)
+app.include_router(
+    evaluation_dashboard_router,
     dependencies=[Depends(get_current_user)],
 )
 app.include_router(auth_router)
