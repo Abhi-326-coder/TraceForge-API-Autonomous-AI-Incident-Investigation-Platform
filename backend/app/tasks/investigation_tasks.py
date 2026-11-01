@@ -1,35 +1,45 @@
-from app.worker import celery_app
+from celery import shared_task
 
-@celery_app.task(
-    bind=True,
-    name="traceforge.run_investigation",
-    max_retries=2,
-    default_retry_delay=10,
+from app.services.investigation_worker_service import (
+    execute_investigation,
 )
-def run_investigation_task(
-    self,
-    investigation_id: int,
-) -> dict:
-    """
-    Run one TraceForge investigation in a worker process.
+from app.services.investigation_lock_service import (
+    investigation_lock_service,
+)
 
-    The workflow implementation is delegated to a service so
-    the Celery task remains small.
-    """
-    from app.services.investigation_worker_service import (
-        execute_investigation,
+
+@shared_task(
+    bind=True,
+    name="run_investigation_task",
+    max_retries=2,
+)
+def run_investigation_task(self, investigation_id: int):
+
+    task_id = self.request.id
+
+    acquired = investigation_lock_service.acquire(
+        investigation_id=investigation_id,
+        task_id=task_id,
+        ttl_seconds=900,
     )
-    
+
+    if not acquired:
+        return {
+            "investigation_id": investigation_id,
+            "status": "ALREADY_RUNNING",
+            "message": "Another worker owns this investigation.",
+        }
+
     try:
-        return execute_investigation(
-            investigation_id=investigation_id
-        )
+        result = execute_investigation(investigation_id)
+
+        return result
+
     except Exception as exc:
-        # Don't retry every failure blindly. A later hardening step
-        # will distinguish transient provider errors from permanent
-        # workflow or validation errors.
-        raise self.retry(exc=exc)
-    
-@celery_app.task(name="traceforge.health_check")
-def health_check_task()->dict:
-    return {"status":"healthy"}
+        raise self.retry(exc=exc, countdown=10)
+
+    finally:
+        investigation_lock_service.release(
+            investigation_id=investigation_id,
+            task_id=task_id,
+        )
