@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  type ComponentProps,
   useEffect,
   useState,
 } from "react";
@@ -26,6 +27,8 @@ type Props = {
   }>;
 };
 
+type Incident = ComponentProps<typeof IncidentHeader>["incident"];
+
 export default function IncidentPage({
   params,
 }: Props) {
@@ -33,14 +36,14 @@ export default function IncidentPage({
     InvestigationEvent[]
   >([]);
 
-  const [evidence, setEvidence] =
+  const [evidence] =
     useState<Evidence[]>([]);
 
   const [rootCause, setRootCause] =
     useState<RootCause | null>(null);
 
   const [incident, setIncident] =
-    useState<any>(null);
+    useState<Incident | null>(null);
 
   const [investigationId, setInvestigationId] =
     useState<number | null>(null);
