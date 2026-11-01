@@ -6,9 +6,13 @@ from app.config import settings
 
 engine = create_engine(
     settings.database_url,
-    echo=False,
+    echo=settings.debug,
+    pool_pre_ping=True,
+    pool_recycle=1800,
+    pool_size=5,
+    max_overflow=10,
+    pool_timeout=30,
 )
-
 
 SessionLocal = sessionmaker(
     bind=engine,
