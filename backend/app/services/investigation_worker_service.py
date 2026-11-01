@@ -1,13 +1,18 @@
-
 from datetime import datetime, timezone
 
-from opentelemetry import trace
 from sqlalchemy.orm import Session
+from opentelemetry import trace
 
 from app.db.database import SessionLocal
 from app.db.models import Incident, Investigation
 from app.graph.runtime import investigation_graph_runtime
 from app.observability.tracing import get_tracer
+
+from app.services.investigation_state_service import (
+    claim_investigation,
+    complete_investigation,
+    fail_investigation,
+)
 
 
 tracer = get_tracer("traceforge.investigation")
@@ -21,8 +26,6 @@ def build_initial_state(
     incident: Incident,
     investigation: Investigation,
 ) -> dict:
-    """Build the initial state expected by InvestigationState."""
-
     return {
         "investigation_id": investigation.id,
         "incident": {
@@ -44,25 +47,19 @@ def build_initial_state(
 
 
 def execute_investigation(investigation_id: int) -> dict:
-    """
-    Execute or recover an investigation using its stable LangGraph
-    checkpoint thread.
-
-    Celery can retry this function after a failure. Graph nodes and
-    external side effects must still be idempotent.
-    """
-
     db: Session = SessionLocal()
 
     try:
         with tracer.start_as_current_span(
             "investigation.execute"
         ) as span:
+
             span.set_attribute(
                 "traceforge.investigation_id",
                 investigation_id,
             )
 
+            # 1. Load investigation.
             investigation = db.get(
                 Investigation,
                 investigation_id,
@@ -74,10 +71,6 @@ def execute_investigation(investigation_id: int) -> dict:
                 )
 
             if investigation.status == "COMPLETED":
-                span.set_attribute(
-                    "traceforge.investigation.status",
-                    "COMPLETED",
-                )
                 return {
                     "investigation_id": investigation_id,
                     "status": "COMPLETED",
@@ -91,44 +84,52 @@ def execute_investigation(investigation_id: int) -> dict:
 
             if incident is None:
                 raise ValueError(
-                    f"Incident for investigation "
-                    f"{investigation_id} not found"
+                    "Incident associated with investigation not found"
                 )
 
-            # Persist RUNNING before starting graph execution.
-            investigation.status = "RUNNING"
-            investigation.started_at = (
-                investigation.started_at or utc_now()
+            # 2. Atomically claim the queued investigation.
+            claimed = claim_investigation(
+                db,
+                investigation_id,
             )
-            db.commit()
 
+            if not claimed:
+                return {
+                    "investigation_id": investigation_id,
+                    "status": "NOT_CLAIMED",
+                    "message": (
+                        "Investigation is not queued "
+                        "or another worker already claimed it."
+                    ),
+                }
+
+            # 3. Prepare initial LangGraph state.
             initial_state = build_initial_state(
                 incident,
                 investigation,
             )
 
-            # A stable thread ID is essential for checkpoint recovery.
             config = {
                 "configurable": {
-                    "thread_id": (
-                        f"investigation-{investigation_id}"
-                    )
+                    "thread_id": f"investigation-{investigation_id}"
                 }
             }
 
+            # 4. Resume from checkpoint if one exists.
             with tracer.start_as_current_span(
                 "investigation.langgraph"
             ) as graph_span:
+
                 graph_span.set_attribute(
                     "traceforge.thread_id",
                     config["configurable"]["thread_id"],
                 )
 
                 with investigation_graph_runtime() as graph:
+
                     snapshot = graph.get_state(config)
 
                     if snapshot and snapshot.next:
-                        # Resume a graph that has a pending node.
                         result = graph.invoke(
                             None,
                             config=config,
@@ -141,8 +142,6 @@ def execute_investigation(investigation_id: int) -> dict:
                             "investigation_complete"
                         )
                     ):
-                        # Recover if the graph completed but the
-                        # database status update did not.
                         result = snapshot.values
 
                     else:
@@ -151,20 +150,23 @@ def execute_investigation(investigation_id: int) -> dict:
                             config=config,
                         )
 
-            # Refresh in case other code updated this row.
-            investigation = db.get(
-                Investigation,
+            # 5. Verify graph completion before marking completed.
+            if not result.get("investigation_complete", False):
+                raise RuntimeError(
+                    "LangGraph finished without setting "
+                    "investigation_complete=True."
+                )
+
+            # 6. Atomically mark the investigation completed.
+            completed = complete_investigation(
+                db,
                 investigation_id,
             )
 
-            if investigation is None:
-                raise ValueError(
-                    "Investigation disappeared during execution"
+            if not completed:
+                raise RuntimeError(
+                    "Unable to transition investigation to COMPLETED."
                 )
-
-            investigation.status = "COMPLETED"
-            investigation.completed_at = utc_now()
-            db.commit()
 
             span.set_attribute(
                 "traceforge.investigation.status",
@@ -181,16 +183,11 @@ def execute_investigation(investigation_id: int) -> dict:
         db.rollback()
 
         try:
-            investigation = db.get(
-                Investigation,
+            # Only a currently RUNNING investigation can be failed.
+            fail_investigation(
+                db,
                 investigation_id,
             )
-
-            if investigation is not None:
-                investigation.status = "FAILED"
-                investigation.completed_at = utc_now()
-                db.commit()
-
         except Exception:
             db.rollback()
 
