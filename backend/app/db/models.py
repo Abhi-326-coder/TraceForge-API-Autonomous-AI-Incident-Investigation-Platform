@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import JSON
 
 from sqlalchemy import DateTime, ForeignKey, String, Text, Integer, Column, Boolean, Index
@@ -432,3 +432,46 @@ class AuditEvent(Base):
         Index("ix_audit_action_created", "action", "created_at"),
     )
     
+class OutboxEvent(Base):
+    __tablename__ = "outbox_events"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    event_type = Column(String(100), nullable=False)
+
+    aggregate_type = Column(String(100), nullable=False)
+    aggregate_id = Column(String(100), nullable=False)
+
+    idempotency_key = Column(
+        String(255),
+        unique=True,
+        nullable=False,
+    )
+
+    payload = Column(JSON, nullable=False)
+
+    status = Column(
+        String(30),
+        nullable=False,
+        default="PENDING",
+        index=True,
+    )
+
+    attempts = Column(Integer, nullable=False, default=0)
+
+    created_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+    locked_at = Column(DateTime(timezone=True), nullable=True)
+
+    published_at = Column(DateTime(timezone=True), nullable=True)
+
+
+Index(
+    "ix_outbox_status_created",
+    OutboxEvent.status,
+    OutboxEvent.created_at,
+)
