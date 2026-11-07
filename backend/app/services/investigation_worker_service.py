@@ -14,6 +14,8 @@ from app.services.investigation_state_service import (
     fail_investigation,
 )
 
+from app.services.worker_heartbeat_service import WorkerHeartbeat
+
 
 tracer = get_tracer("traceforge.investigation")
 
@@ -46,7 +48,10 @@ def build_initial_state(
     }
 
 
-def execute_investigation(investigation_id: int) -> dict:
+def execute_investigation(
+    investigation_id: int,
+    worker_id: str,
+) -> dict:
     db: Session = SessionLocal()
 
     try:
@@ -91,17 +96,21 @@ def execute_investigation(investigation_id: int) -> dict:
             claimed = claim_investigation(
                 db,
                 investigation_id,
+                worker_id,
             )
 
             if not claimed:
                 return {
                     "investigation_id": investigation_id,
                     "status": "NOT_CLAIMED",
-                    "message": (
-                        "Investigation is not queued "
-                        "or another worker already claimed it."
-                    ),
                 }
+
+            heartbeat = WorkerHeartbeat(
+                investigation_id=investigation_id,
+                worker_id=worker_id,
+            )
+
+            heartbeat.start()
 
             # 3. Prepare initial LangGraph state.
             initial_state = build_initial_state(
@@ -156,6 +165,22 @@ def execute_investigation(investigation_id: int) -> dict:
                     "LangGraph finished without setting "
                     "investigation_complete=True."
                 )
+            
+            if heartbeat.lost_lease.is_set():
+                raise RuntimeError(
+                    "Worker lost investigation lease."
+                )
+
+            completed = complete_investigation(
+                db,
+                investigation_id,
+                worker_id,
+            )
+
+            if not completed:
+                raise RuntimeError(
+                    "Investigation ownership was lost before completion."
+                )
 
             # 6. Atomically mark the investigation completed.
             completed = complete_investigation(
@@ -180,6 +205,13 @@ def execute_investigation(investigation_id: int) -> dict:
             }
 
     except Exception as exc:
+        
+        fail_investigation(
+            db,
+            investigation_id,
+            worker_id,
+        )
+        
         db.rollback()
 
         try:
@@ -203,4 +235,6 @@ def execute_investigation(investigation_id: int) -> dict:
         raise
 
     finally:
+        if "heartbeat" in locals():
+            heartbeat.stop()
         db.close()
