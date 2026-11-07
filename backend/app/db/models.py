@@ -199,6 +199,10 @@ class Investigation(Base):
     cascade="all, delete-orphan",
     )
     
+    worker_id = Column(String(255), nullable=True)
+    heartbeat_at = Column(DateTime(timezone=True), nullable=True)
+    lease_expires_at = Column(DateTime(timezone=True), nullable=True)
+    
 class Evidence(Base):
     __tablename__ = "evidence"
 
