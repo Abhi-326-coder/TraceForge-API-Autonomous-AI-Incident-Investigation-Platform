@@ -4,7 +4,6 @@ from app.services.investigation_worker_service import (
     execute_investigation,
 )
 
-# Remove the old redis lock acquisition from this task now PostgresSQL lease handles the ownership 
 
 @shared_task(
     bind=True,
