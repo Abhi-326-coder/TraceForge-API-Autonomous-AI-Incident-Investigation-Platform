@@ -3,43 +3,26 @@ from celery import shared_task
 from app.services.investigation_worker_service import (
     execute_investigation,
 )
-from app.services.investigation_lock_service import (
-    investigation_lock_service,
-)
 
+# Remove the old redis lock acquisition from this task now PostgresSQL lease handles the ownership 
 
 @shared_task(
     bind=True,
     name="run_investigation_task",
     max_retries=2,
 )
-def run_investigation_task(self, investigation_id: int):
-
-    task_id = self.request.id
-
-    acquired = investigation_lock_service.acquire(
-        investigation_id=investigation_id,
-        task_id=task_id,
-        ttl_seconds=900,
-    )
-
-    if not acquired:
-        return {
-            "investigation_id": investigation_id,
-            "status": "ALREADY_RUNNING",
-            "message": "Another worker owns this investigation.",
-        }
-
+def run_investigation_task(
+    self,
+    investigation_id: int,
+):
     try:
-        result = execute_investigation(investigation_id)
-
-        return result
+        return execute_investigation(
+            investigation_id=investigation_id,
+            worker_id=self.request.id,
+        )
 
     except Exception as exc:
-        raise self.retry(exc=exc, countdown=10)
-
-    finally:
-        investigation_lock_service.release(
-            investigation_id=investigation_id,
-            task_id=task_id,
+        raise self.retry(
+            exc=exc,
+            countdown=10,
         )
