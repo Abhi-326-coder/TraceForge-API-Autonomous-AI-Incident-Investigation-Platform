@@ -205,20 +205,13 @@ def execute_investigation(
             }
 
     except Exception as exc:
-        
-        fail_investigation(
-            db,
-            investigation_id,
-            worker_id,
-        )
-        
         db.rollback()
 
         try:
-            # Only a currently RUNNING investigation can be failed.
             fail_investigation(
                 db,
                 investigation_id,
+                worker_id,
             )
         except Exception:
             db.rollback()
