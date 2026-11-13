@@ -140,6 +140,34 @@ def fail_investigation(
     return result.rowcount == 1
 
 
+def requeue_failed_investigation_for_retry(
+    db: Session,
+    investigation_id: int,
+) -> None:
+    statement = (
+        update(Investigation)
+        .where(
+            Investigation.id == investigation_id,
+            Investigation.status == "FAILED",
+        )
+        .values(
+            status="QUEUED",
+            completed_at=None,
+            worker_id=None,
+            lease_expires_at=None,
+        )
+    )
+
+    result = db.execute(statement)
+    if result.rowcount != 1:
+        db.rollback()
+        raise RuntimeError(
+            f"Unable to requeue failed investigation {investigation_id}."
+        )
+
+    db.commit()
+
+
 def recover_stale_investigations(
     db: Session,
 ) -> int:

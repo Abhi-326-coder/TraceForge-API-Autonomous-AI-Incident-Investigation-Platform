@@ -1,5 +1,6 @@
 
 from datetime import datetime, timedelta, timezone
+import logging
 
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
@@ -10,6 +11,7 @@ from app.tasks.investigation_tasks import run_investigation_task
 
 
 PROCESSING_TIMEOUT_SECONDS = 120
+logger = logging.getLogger(__name__)
 
 
 def utc_now() -> datetime:
@@ -175,6 +177,14 @@ def dispatch_pending_events(batch_size: int = 20) -> dict:
                 published += 1
 
             except Exception:
+                # ``delay`` only returns after the broker accepts the task.
+                # Keep the event retryable and retain the real failure in logs
+                # when publication (or event validation) fails.
+                logger.exception(
+                    "Failed to publish outbox event %s (%s)",
+                    event["id"],
+                    event["event_type"],
+                )
                 mark_event_failed(
                     db=db,
                     event_id=event["id"],

@@ -3,6 +3,36 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from app.config import settings
 
 
+def _extract_text_content(content: object) -> str:
+    if isinstance(content, str):
+        return content
+
+    if not isinstance(content, list):
+        raise TypeError("Supervisor response content must be text.")
+
+    text_parts = []
+    for part in content:
+        if isinstance(part, str):
+            text_parts.append(part)
+        elif isinstance(part, dict):
+            text = part.get("text")
+            if not isinstance(text, str):
+                raise ValueError(
+                    "Supervisor response contains a non-text content block."
+                )
+            text_parts.append(text)
+        else:
+            raise TypeError(
+                "Supervisor response contains an unsupported content block."
+            )
+
+    response_text = "".join(text_parts)
+    if not response_text.strip():
+        raise ValueError("Supervisor response contains no text.")
+
+    return response_text
+
+
 class SupervisorAgent:
 
     def __init__(self):
@@ -77,7 +107,9 @@ code
 
         agents = [
             item.strip().lower()
-            for item in response.content.split(",")
+            for item in _extract_text_content(
+                response.content
+            ).split(",")
         ]
 
         allowed = {

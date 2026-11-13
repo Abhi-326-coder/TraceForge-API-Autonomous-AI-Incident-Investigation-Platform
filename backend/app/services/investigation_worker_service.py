@@ -182,17 +182,6 @@ def execute_investigation(
                     "Investigation ownership was lost before completion."
                 )
 
-            # 6. Atomically mark the investigation completed.
-            completed = complete_investigation(
-                db,
-                investigation_id,
-            )
-
-            if not completed:
-                raise RuntimeError(
-                    "Unable to transition investigation to COMPLETED."
-                )
-
             span.set_attribute(
                 "traceforge.investigation.status",
                 "COMPLETED",

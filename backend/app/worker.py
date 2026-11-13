@@ -5,7 +5,7 @@ from app.config import settings
 
 # To start the celery worker :
 # celery -A app.worker:celery_app worker --loglevel=info --pool=solo
-# celery -A app.worker.celery_app beat --loglevel=info
+# celery -A app.worker:celery_app beat --loglevel=info
 celery_app = Celery(
     "traceforge",
     broker=settings.redis_url,

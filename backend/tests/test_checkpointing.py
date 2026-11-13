@@ -1,10 +1,26 @@
+import socket
 from uuid import uuid4
 
+import pytest
 from langgraph.checkpoint.postgres import PostgresSaver
 from langgraph.graph import END, START, StateGraph
 from typing_extensions import TypedDict
 
 from app.graph.runtime import psycopg_database_url
+
+
+def _postgres_available() -> bool:
+    try:
+        with socket.create_connection(("localhost", 5432), timeout=1):
+            return True
+    except OSError:
+        return False
+
+
+pytestmark = pytest.mark.skipif(
+    not _postgres_available(),
+    reason="Postgres is not running on localhost:5432",
+)
 
 
 class TestState(TypedDict):

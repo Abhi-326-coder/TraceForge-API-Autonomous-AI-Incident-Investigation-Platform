@@ -1,5 +1,3 @@
-from celery import shared_task
-
 from app.db.database import SessionLocal
 from app.services.investigation_state_service import (
     recover_stale_investigations,
@@ -7,9 +5,10 @@ from app.services.investigation_state_service import (
 from app.tasks.investigation_tasks import (
     run_investigation_task,
 )
+from app.worker import celery_app
 
 
-@shared_task(name="recover_stale_investigations")
+@celery_app.task(name="recover_stale_investigations")
 def recover_stale_investigation_jobs():
 
     db = SessionLocal()

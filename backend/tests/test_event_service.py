@@ -1,8 +1,25 @@
+import socket
 from datetime import datetime, timezone
 from uuid import uuid4
 
+import pytest
+
 from app.schemas.event import InvestigationEvent
 from app.services.event_service import InvestigationEventService
+
+
+def _redis_available() -> bool:
+    try:
+        with socket.create_connection(("localhost", 6379), timeout=1):
+            return True
+    except OSError:
+        return False
+
+
+pytestmark = pytest.mark.skipif(
+    not _redis_available(),
+    reason="Redis is not running on localhost:6379",
+)
 
 
 def test_event_is_stored_and_retrievable():

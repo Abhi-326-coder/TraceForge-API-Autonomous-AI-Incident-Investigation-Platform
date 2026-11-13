@@ -6,7 +6,6 @@ from app.db.models import Incident, Investigation, User
 from app.schemas.investigation import InvestigationResponse
 from app.services.investigation_service import (
     create_investigation,
-    start_investigation,
 )
 from app.services.agent_service import run_log_agent
 from app.schemas.finding import Finding
@@ -38,7 +37,7 @@ router = APIRouter(
 def create_incident_investigation(
     incident_id: int,
     db: Session = Depends(get_db),
-    user:User = Depends()
+    user: User = Depends(get_current_user)
 ):
     incident = get_owned_incident(db, incident_id, user)
 
@@ -53,11 +52,6 @@ def create_incident_investigation(
         incident=incident,
     )
 
-    investigation = start_investigation(
-        db=db,
-        investigation=investigation,
-    )
-
     return investigation
 
 
@@ -68,7 +62,7 @@ def create_incident_investigation(
 def list_investigations(
     incident_id: int,
     db: Session = Depends(get_db),
-    user:User = Depends()
+    user: User = Depends(get_current_user)
 ):
     incident = get_owned_incident(db, incident_id, user)
 
@@ -93,7 +87,7 @@ def list_investigations(
 def investigate_logs(
     incident_id: int,
     db: Session = Depends(get_db),
-    user:User = Depends()
+    user: User = Depends(get_current_user)
 ):
     incident = get_owned_incident(db, incident_id, user)
 
@@ -130,7 +124,7 @@ def investigate_logs(
 def investigate_with_gemini(
     incident_id: int,
     db: Session = Depends(get_db),
-    user:User = Depends()
+    user: User = Depends(get_current_user)
 ):
     incident = get_owned_incident(db, incident_id, user)
 
@@ -153,7 +147,7 @@ def investigate_with_gemini(
 def analyze_root_cause(
     incident_id: int,
     db: Session = Depends(get_db),
-    user:User = Depends()
+    user: User = Depends(get_current_user)
 ):
 
     incident = get_owned_incident(db, incident_id, user)

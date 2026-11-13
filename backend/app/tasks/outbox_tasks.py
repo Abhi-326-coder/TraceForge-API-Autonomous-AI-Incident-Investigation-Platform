@@ -1,11 +1,10 @@
-from celery import shared_task
-
 from app.services.outbox_dispatcher_service import (
     dispatch_pending_events,
 )
+from app.worker import celery_app
 
 
-@shared_task(
+@celery_app.task(
     name="dispatch_outbox_events",
     max_retries=3,
 )

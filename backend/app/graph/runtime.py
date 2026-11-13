@@ -25,6 +25,8 @@ def investigation_graph_runtime():
     with PostgresSaver.from_conn_string(
         connection_string
     ) as checkpointer:
+        checkpointer.setup()
+
         # Import your EXISTING graph builder here.
         # Replace this import and call with the actual names
         # from your TraceForge project.
