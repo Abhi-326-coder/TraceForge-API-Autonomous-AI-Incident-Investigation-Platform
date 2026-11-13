@@ -41,6 +41,8 @@ class SupervisorAgent:
             model=settings.gemini_model,
             google_api_key=settings.gemini_api_key,
             temperature=0,
+            request_timeout=30,
+            retries=1,
         )
 
     def create_plan(
