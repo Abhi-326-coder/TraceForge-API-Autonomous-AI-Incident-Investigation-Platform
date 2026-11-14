@@ -1,38 +1,13 @@
-const API_URL =
-  process.env.NEXT_PUBLIC_API_URL ||
-  "http://localhost:8000";
+import { incidentsApi } from "./api/incidents";
 
 export async function getIncident(
   incidentId: number
 ) {
-  const response = await fetch(
-    `${API_URL}/api/incidents/${incidentId}`
-  );
-
-  if (!response.ok) {
-    throw new Error(
-      "Failed to fetch incident"
-    );
-  }
-
-  return response.json();
+  return incidentsApi.get(incidentId);
 }
 
 export async function startInvestigation(
   incidentId: number
 ) {
-  const response = await fetch(
-    `${API_URL}/api/incidents/${incidentId}/investigate`,
-    {
-      method: "POST",
-    }
-  );
-
-  if (!response.ok) {
-    throw new Error(
-      "Failed to start investigation"
-    );
-  }
-
-  return response.json();
+  return incidentsApi.startInvestigation(incidentId);
 }
