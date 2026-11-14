@@ -2,6 +2,10 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { getEvaluationDashboard } from "@/lib/evaluation";
+import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
+import { ErrorState, LoadingSkeleton } from "@/components/ui/States";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 function MetricCard({
   title,
@@ -13,13 +17,13 @@ function MetricCard({
   description: string;
 }) {
   return (
-    <div className="rounded-xl border bg-card p-5">
+    <Card className="p-5">
       <p className="text-sm text-muted-foreground">{title}</p>
       <h2 className="mt-2 text-3xl font-semibold">{value}</h2>
       <p className="mt-2 text-xs text-muted-foreground">
         {description}
       </p>
-    </div>
+    </Card>
   );
 }
 
@@ -32,32 +36,17 @@ export default function EvaluationPage() {
 
   if (isLoading) {
     return (
-      <main className="p-8">
-        <p className="text-muted-foreground">
-          Loading evaluation results...
-        </p>
-      </main>
+      <div className="space-y-4"><LoadingSkeleton className="h-8 w-56" /><LoadingSkeleton className="h-32 w-full" /></div>
     );
   }
 
   if (isError || !data) {
     return (
-      <main className="space-y-4 p-8">
-        <h1 className="text-2xl font-semibold">
-          Evaluation Dashboard
-        </h1>
-        <p className="text-sm text-red-500">
-          {error instanceof Error
-            ? error.message
-            : "Unable to load dashboard."}
-        </p>
-        <button
-          onClick={() => refetch()}
-          className="rounded-lg border px-4 py-2 text-sm"
-        >
-          Retry
-        </button>
-      </main>
+      <ErrorState
+        title="Unable to load evaluations"
+        description={error instanceof Error ? error.message : "Unable to load dashboard."}
+        onRetry={() => refetch()}
+      />
     );
   }
 
@@ -65,29 +54,15 @@ export default function EvaluationPage() {
     `${(value * 100).toFixed(1)}%`;
 
   return (
-    <main className="space-y-8 p-6 md:p-8">
-      <header className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <p className="text-sm text-muted-foreground">
-            TRACEFORGE / ANALYTICS
-          </p>
-          <h1 className="mt-2 text-3xl font-semibold">
-            Evaluation Dashboard
-          </h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Monitor investigation quality and system performance.
-          </p>
-        </div>
+    <div className="space-y-8">
+      <PageHeader
+        eyebrow="Analytics"
+        title="Evaluation dashboard"
+        description="Monitor investigation quality and system performance."
+        actions={<Button variant="secondary" onClick={() => refetch()}>Refresh results</Button>}
+      />
 
-        <button
-          onClick={() => refetch()}
-          className="rounded-lg border px-4 py-2 text-sm"
-        >
-          Refresh results
-        </button>
-      </header>
-
-      <div className="rounded-xl border p-4">
+      <Card className="p-4">
         <p className="text-sm font-medium">Evaluation mode</p>
         <p className="mt-1 text-sm text-muted-foreground">
           {data.mode}
@@ -96,7 +71,7 @@ export default function EvaluationPage() {
           These are deterministic fixture smoke-test results,
           not measured live AI accuracy.
         </p>
-      </div>
+      </Card>
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard
@@ -134,9 +109,9 @@ export default function EvaluationPage() {
           </p>
         </div>
 
-        <div className="overflow-x-auto rounded-xl border">
+        <div className="overflow-x-auto rounded-xl border bg-surface">
           <table className="w-full text-left text-sm">
-            <thead className="bg-muted/50">
+            <thead className="bg-surface-subtle">
               <tr>
                 <th className="p-4">Test case</th>
                 <th className="p-4">Root cause</th>
@@ -180,6 +155,6 @@ export default function EvaluationPage() {
           </table>
         </div>
       </section>
-    </main>
+    </div>
   );
 }
