@@ -3,8 +3,10 @@ import json
 
 from sqlalchemy.orm import Session
 
-from app.db.models import PatchApproval
+from app.db.models import PatchApproval, User
 from app.providers.github_writes import GitHubWriteProvider
+from app.services.authorization_service import get_patch_github_repository
+from app.services.audit_service import record_audit_event
 
 
 def calculate_patch_hash(approval: PatchApproval) -> str:
@@ -24,15 +26,14 @@ def calculate_patch_hash(approval: PatchApproval) -> str:
 
 async def commit_approved_patch(
     db: Session,
+    current_user: User,
     patch_id: int,
     owner: str,
     repo: str,
     base_branch: str,
 ) -> dict:
-    approval = db.get(PatchApproval, patch_id)
-
-    if approval is None:
-        raise ValueError("Patch approval not found")
+    # Request target values are retained for API compatibility but never trusted.
+    approval, project_id, owner, repo, base_branch = get_patch_github_repository(db, patch_id, current_user)
 
     if approval.status != "APPROVED":
         raise ValueError("Patch must be approved first")
@@ -69,21 +70,17 @@ async def commit_approved_patch(
             "Create the feature branch before committing the patch"
         )
 
+    if approval.github_pr_number:
+        return {"commit_sha": approval.github_commit_sha, "branch": branch, "pr_number": approval.github_pr_number, "pr_url": approval.github_pr_url, "pr_state": approval.github_pr_state, "draft": True}
+
     provider = GitHubWriteProvider()
 
-    result = await provider.create_commit_and_pr(
-        owner=owner,
-        repo=repo,
-        base_branch=base_branch,
-        head_branch=branch,
-        files=approval.proposed_files,
-        commit_message=(
+    try:
+        result = await provider.create_commit_and_pr(owner=owner, repo=repo, base_branch=base_branch, head_branch=branch, files=approval.proposed_files, commit_message=(
             f"fix: address incident {approval.investigation_id}"
-        ),
-        pr_title=(
+        ), pr_title=(
             f"TraceForge: {approval.patch_summary}"
-        ),
-        pr_body=(
+        ), pr_body=(
             "## Automated incident remediation\n\n"
             f"**Investigation:** {approval.investigation_id}\n"
             f"**Patch approval:** {approval.id}\n\n"
@@ -95,13 +92,16 @@ async def commit_approved_patch(
             + "\n".join(
                 f"- {test}" for test in approval.tests_to_run
             )
-        ),
-    )
-
-    approval.github_commit_sha = result["commit_sha"]
-    approval.github_pr_number = result["pr_number"]
-    approval.github_pr_url = result["pr_url"]
-
-    db.commit()
-
-    return result
+        ))
+        approval.github_commit_sha = result["commit_sha"]
+        approval.github_pr_number = result["pr_number"]
+        approval.github_pr_url = result["pr_url"]
+        approval.github_pr_state = result["pr_state"]
+        record_audit_event(db, action="GITHUB_PR_CREATED", outcome="SUCCESS", actor_user_id=current_user.id, resource_type="PatchApproval", resource_id=approval.id, metadata={"patch_id": approval.id, "project_id": project_id, "repository": f"{owner}/{repo}", "branch": branch, "commit_sha": approval.github_commit_sha, "pr_number": approval.github_pr_number, "pr_state": approval.github_pr_state})
+        db.commit()
+        return result
+    except Exception:
+        db.rollback()
+        record_audit_event(db, action="GITHUB_PR_CREATED", outcome="FAILURE", actor_user_id=current_user.id, resource_type="PatchApproval", resource_id=approval.id, metadata={"patch_id": approval.id, "project_id": project_id, "repository": f"{owner}/{repo}", "branch": branch, "reason_code": "github_write_failed"})
+        db.commit()
+        raise

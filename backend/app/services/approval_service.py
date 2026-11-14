@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy import update
 
 from app.db.models import PatchApproval, User
 from app.schemas.approval import (
@@ -138,15 +139,6 @@ def decide_patch_approval(
         current_user,
     )
 
-    if approval.status != "PENDING":
-        raise HTTPException(
-            status_code=409,
-            detail=(
-                f"Patch is already {approval.status.lower()}; "
-                "only pending patches can be decided."
-            ),
-        )
-
     requested_decision = decision.decision.upper()
 
     if requested_decision not in {"APPROVED", "REJECTED"}:
@@ -155,10 +147,23 @@ def decide_patch_approval(
             detail="Decision must be APPROVED or REJECTED.",
         )
 
-    approval.status = requested_decision
-    approval.decision_note = decision.note
-    approval.decided_by = str(current_user.id)
-    approval.decided_at = utc_now()
+    decided_at = utc_now()
+    changed = db.execute(
+        update(PatchApproval)
+        .where(PatchApproval.id == patch_id, PatchApproval.status == "PENDING")
+        .values(
+            status=requested_decision,
+            decision_note=decision.note,
+            decided_by=str(current_user.id),
+            decided_at=decided_at,
+        )
+    ).rowcount
+    if changed != 1:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="Patch is no longer pending; refresh before deciding.",
+        )
 
     action = (
         "PATCH_APPROVED"

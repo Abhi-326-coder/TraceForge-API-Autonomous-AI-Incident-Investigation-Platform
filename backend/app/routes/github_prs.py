@@ -6,6 +6,8 @@ from sqlalchemy.orm import Session
 
 from app.db.database import get_db
 from app.services.github_pr_service import commit_approved_patch
+from app.db.models import User
+from app.security import get_current_user
 
 router = APIRouter(
     prefix="/api/patches",
@@ -24,10 +26,12 @@ async def create_pull_request(
     patch_id: int,
     payload: CreatePRRequest,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     try:
         return await commit_approved_patch(
             db=db,
+            current_user=current_user,
             patch_id=patch_id,
             owner=payload.owner,
             repo=payload.repo,

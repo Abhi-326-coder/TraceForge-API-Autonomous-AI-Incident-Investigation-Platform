@@ -10,6 +10,8 @@ from app.schemas.github_branch import (
 from app.services.github_branch_service import (
     create_branch_for_approval,
 )
+from app.db.models import User
+from app.security import get_current_user
 
 router = APIRouter(
     prefix="/api/patches",
@@ -25,10 +27,12 @@ async def create_approved_patch_branch(
     patch_id: int,
     payload: CreateBranchRequest,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     try:
         return await create_branch_for_approval(
             db=db,
+            current_user=current_user,
             patch_id=patch_id,
             owner=payload.owner,
             repo=payload.repo,

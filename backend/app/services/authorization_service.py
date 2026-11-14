@@ -10,6 +10,7 @@ from app.db.models import (
     Evidence,
     PatchApproval,
     AgentMemory,
+    ProjectConnection,
 )
 
 
@@ -88,6 +89,36 @@ def get_owned_patch(
         db, patch.investigation_id, user
     )
     return patch
+
+
+def get_patch_github_repository(
+    db: Session,
+    patch_id: int,
+    user: User,
+) -> tuple[PatchApproval, int, str, str, str]:
+    """Resolve an owned patch to its project's authorized GitHub target."""
+    patch = get_owned_patch(db, patch_id, user)
+    investigation = db.get(Investigation, patch.investigation_id)
+    incident = db.get(Incident, investigation.incident_id)
+    connection = (
+        db.query(ProjectConnection)
+        .filter(
+            ProjectConnection.project_id == incident.project_id,
+            ProjectConnection.connection_type == "code",
+            ProjectConnection.provider == "github",
+        )
+        .first()
+    )
+    if connection is None:
+        raise HTTPException(409, "Project has no authorized GitHub code connection.")
+    repository = connection.config.get("repository") if isinstance(connection.config, dict) else None
+    base_branch = connection.config.get("branch") if isinstance(connection.config, dict) else None
+    if not isinstance(repository, str) or repository.count("/") != 1 or not isinstance(base_branch, str) or not base_branch:
+        raise HTTPException(409, "Project GitHub connection is incomplete.")
+    owner, repo = repository.split("/", 1)
+    if not owner or not repo:
+        raise HTTPException(409, "Project GitHub connection is incomplete.")
+    return patch, incident.project_id, owner, repo, base_branch
 
 
 def get_owned_memory(

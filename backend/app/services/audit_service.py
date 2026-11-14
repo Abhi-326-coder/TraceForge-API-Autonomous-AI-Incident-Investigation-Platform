@@ -34,6 +34,11 @@ SAFE_METADATA_KEYS = {
     "patch_id",
     "pr_number",
     "http_status",
+    "project_id",
+    "repository",
+    "branch",
+    "commit_sha",
+    "pr_state",
 }
 
 

@@ -336,9 +336,12 @@ class PatchApproval(Base):
     proposed_files = Column(JSON, nullable=False, default=dict)
     patch_sha256 = Column(String(64), nullable=True)
     github_branch = Column(String(255), nullable=True)
+    github_branch_sha = Column(String(40), nullable=True)
+    github_branch_url = Column(String(500), nullable=True)
     github_commit_sha = Column(String(40), nullable=True)
     github_pr_number = Column(Integer, nullable=True)
     github_pr_url = Column(String(500), nullable=True)
+    github_pr_state = Column(String(30), nullable=True)
     
 class AgentMemory(Base):
     __tablename__ = "agent_memories"

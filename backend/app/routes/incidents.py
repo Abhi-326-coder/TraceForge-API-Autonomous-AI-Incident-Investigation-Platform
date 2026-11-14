@@ -64,9 +64,15 @@ def create_incident(
     response_model=list[IncidentResponse],
 )
 def list_incidents(
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
-    return db.query(Incident).all()
+    return (
+        db.query(Incident)
+        .join(Project, Incident.project_id == Project.id)
+        .filter(Project.owner_id == current_user.id)
+        .all()
+    )
 
 
 @router.get(
