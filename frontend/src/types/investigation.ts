@@ -9,11 +9,13 @@ export type InvestigationEvent = {
 
 export type Evidence = {
   id: number;
+  investigation_id: number;
   source_type: string;
   provider: string;
   title: string;
   content: string;
   source_reference?: string | null;
+  created_at: string;
 };
 
 export type RootCause = {
