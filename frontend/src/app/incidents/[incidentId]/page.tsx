@@ -20,6 +20,7 @@ import type {
   Evidence,
   RootCause,
 } from "@/types/investigation";
+import { apiJson } from "@/lib/api-client";
 
 type Props = {
   params: Promise<{
@@ -53,24 +54,13 @@ export default function IncidentPage({
       const { incidentId } =
         await params;
 
-      const response = await fetch(
-        `http://localhost:8000/api/incidents/${incidentId}`
-      );
-
-      const data =
-        await response.json();
+      const data = await apiJson<Incident>(`/api/incidents/${incidentId}`);
 
       setIncident(data);
 
       // Temporary:
       // use the latest investigation.
-      const investigationResponse =
-        await fetch(
-          `http://localhost:8000/api/incidents/${incidentId}/investigations`
-        );
-
-      const investigations =
-        await investigationResponse.json();
+      const investigations = await apiJson<Array<{ id: number }>>(`/api/incidents/${incidentId}/investigations`);
 
       if (investigations.length > 0) {
         setInvestigationId(
@@ -114,15 +104,15 @@ export default function IncidentPage({
 
   if (!incident) {
     return (
-      <main className="min-h-screen bg-zinc-950 p-10 text-zinc-400">
+      <main className="p-2 text-muted">
         Loading incident...
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-zinc-950 text-zinc-100">
-      <div className="mx-auto max-w-[1600px] px-8 py-8">
+    <main>
+      <div>
 
         <IncidentHeader
           incident={incident}
@@ -130,10 +120,10 @@ export default function IncidentPage({
 
         <div className="mt-8 grid grid-cols-12 gap-6">
 
-          <section className="col-span-7 rounded-xl border border-zinc-800 bg-zinc-950 p-6">
+          <section className="col-span-12 rounded-xl border bg-surface p-6 xl:col-span-7">
 
             <div className="mb-6">
-              <p className="text-xs font-medium uppercase tracking-wider text-zinc-500">
+              <p className="text-xs font-medium uppercase tracking-wider text-muted">
                 Investigation
               </p>
 
@@ -148,11 +138,11 @@ export default function IncidentPage({
 
           </section>
 
-          <aside className="col-span-5 space-y-6">
+          <aside className="col-span-12 space-y-6 xl:col-span-5">
 
             <section>
               <div className="mb-3">
-                <p className="text-xs font-medium uppercase tracking-wider text-zinc-500">
+                <p className="text-xs font-medium uppercase tracking-wider text-muted">
                   Root Cause
                 </p>
               </div>
@@ -164,7 +154,7 @@ export default function IncidentPage({
 
             <section>
               <div className="mb-3">
-                <p className="text-xs font-medium uppercase tracking-wider text-zinc-500">
+                <p className="text-xs font-medium uppercase tracking-wider text-muted">
                   Evidence
                 </p>
               </div>
