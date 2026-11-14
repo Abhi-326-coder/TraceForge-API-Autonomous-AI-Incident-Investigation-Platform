@@ -1,7 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
-import { getEvaluationDashboard } from "@/lib/evaluation";
+import { useEvaluationDashboard } from "@/hooks/use-evaluation-dashboard";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { ErrorState, LoadingSkeleton } from "@/components/ui/States";
@@ -28,11 +27,7 @@ function MetricCard({
 }
 
 export default function EvaluationPage() {
-  const { data, isLoading, isError, error, refetch } = useQuery({
-    queryKey: ["evaluation-dashboard"],
-    queryFn: getEvaluationDashboard,
-    retry: 1,
-  });
+  const { data, isLoading, isError, error, refetch } = useEvaluationDashboard();
 
   if (isLoading) {
     return (
