@@ -3,7 +3,10 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.db.database import Base
-from app.db.models import AuditEvent, Project, User
+from app.db.models import (
+    AuditEvent, Incident, Investigation, PatchApproval, Project,
+    ProjectConnection, User,
+)
 
 
 @pytest.fixture
@@ -13,6 +16,10 @@ def db_session():
         User.__table__,
         Project.__table__,
         AuditEvent.__table__,
+        Incident.__table__,
+        Investigation.__table__,
+        PatchApproval.__table__,
+        ProjectConnection.__table__,
     ]
     Base.metadata.create_all(engine, tables=tables)
     session_factory = sessionmaker(bind=engine)
