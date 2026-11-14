@@ -24,24 +24,24 @@ export default function EvidencePanel({
       {evidence.map((item) => (
         <div
           key={item.id}
-          className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-4"
+          className="rounded-lg border bg-surface p-4"
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-zinc-500">
+            <span className="text-xs font-medium text-muted">
               {sourceLabels[item.source_type] ||
                 item.source_type.toUpperCase()}
             </span>
 
-            <span className="font-mono text-xs text-zinc-600">
+            <span className="font-mono text-xs text-muted">
               #{item.id}
             </span>
           </div>
 
-          <h3 className="mt-2 text-sm font-medium text-zinc-200">
+          <h3 className="mt-2 text-sm font-medium text-foreground">
             {item.title}
           </h3>
 
-          <p className="mt-2 text-xs leading-5 text-zinc-400">
+          <p className="mt-2 text-xs leading-5 text-muted">
             {item.content}
           </p>
         </div>
