@@ -1,26 +1,37 @@
-from pydantic import BaseModel, Field
+
+from pydantic import BaseModel, Field, ConfigDict
 
 
 class ModifiedFile(BaseModel):
-    file_path: str
-    proposed_content: str
-    change_summary: str
+    model_config = ConfigDict(extra="forbid")
+
+    file_path: str = Field(min_length=1)
+    proposed_content: str = Field(min_length=1)
+    change_summary: str = Field(min_length=1)
 
 
 class PatchGenerationResult(BaseModel):
-    summary: str
+    model_config = ConfigDict(extra="forbid")
+
+    summary: str = Field(min_length=1)
+
     modified_files: list[ModifiedFile] = Field(
         min_length=1
     )
-    tests_to_run: list[str]
-    risks: list[str]
+
+    tests_to_run: list[str] = Field(default_factory=list)
+    risks: list[str] = Field(default_factory=list)
     assumptions: list[str] = Field(default_factory=list)
 
 
 class GeneratedPatch(BaseModel):
-    summary: str
-    diff: str
-    changed_files: list[str]
-    tests_to_run: list[str]
-    risks: list[str]
-    assumptions: list[str]
+    model_config = ConfigDict(extra="forbid")
+
+    summary: str = Field(min_length=1)
+    diff: str = Field(min_length=1)
+
+    changed_files: list[str] = Field(min_length=1)
+
+    tests_to_run: list[str] = Field(default_factory=list)
+    risks: list[str] = Field(default_factory=list)
+    assumptions: list[str] = Field(default_factory=list)
