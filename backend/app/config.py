@@ -1,5 +1,8 @@
-from pydantic import Field, model_validator
+from pathlib import Path
+
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from sqlalchemy import URL
 
 
 class Settings(BaseSettings):
@@ -7,7 +10,11 @@ class Settings(BaseSettings):
     app_version: str = "0.1.0"
     debug: bool = False
 
-    database_url: str
+    postgres_user: str
+    postgres_password: str
+    postgres_db: str
+    postgres_host: str = "localhost"
+    postgres_port: int = 5432
     redis_url: str = "redis://localhost:6379/0"
 
     gemini_api_key: str
@@ -29,10 +36,17 @@ class Settings(BaseSettings):
     cors_origins: list[str] = Field(default_factory=list)
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=Path(__file__).resolve().parents[2] / ".env",
         env_file_encoding="utf-8",
         extra="ignore",
     )
+
+    @field_validator("postgres_user", "postgres_password", "postgres_db")
+    @classmethod
+    def validate_postgres_value(cls, value: str, info):
+        if not value.strip():
+            raise ValueError(f"{info.field_name.upper()} must be set and non-empty")
+        return value
 
     @model_validator(mode="after")
     def validate_security_settings(self):
@@ -53,6 +67,18 @@ class Settings(BaseSettings):
             )
 
         return self
+
+    @property
+    def database_url(self) -> str:
+        """Build the database URL from the shared PostgreSQL settings."""
+        return URL.create(
+            drivername="postgresql+psycopg",
+            username=self.postgres_user,
+            password=self.postgres_password,
+            host=self.postgres_host,
+            port=self.postgres_port,
+            database=self.postgres_db,
+        ).render_as_string(hide_password=False)
 
 
 settings = Settings()
