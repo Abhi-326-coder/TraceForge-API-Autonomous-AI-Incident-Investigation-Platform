@@ -32,6 +32,7 @@ def test_generated_patch_requires_diff():
             summary="Fix checkout",
             diff="",
             changed_files=["checkout.py"],
+            proposed_files={"checkout.py": "fixed"},
         )
 
 
