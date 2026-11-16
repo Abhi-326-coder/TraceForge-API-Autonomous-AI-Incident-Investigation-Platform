@@ -49,6 +49,7 @@ def test_pr_uses_persisted_branch_and_does_not_duplicate(db_session, user_a, mon
     second = asyncio.run(github_pr_service.commit_approved_patch(db_session, user_a, patch.id, "evil", "repo", "other"))
     assert first == second and len(calls) == 1
     assert calls[0]["owner"] == "trusted-org" and calls[0]["head_branch"] == patch.github_branch
+    assert calls[0]["files"] == patch.proposed_files
     assert db_session.query(AuditEvent).filter(AuditEvent.action == "GITHUB_PR_CREATED", AuditEvent.outcome == "SUCCESS").count() == 1
 
 
