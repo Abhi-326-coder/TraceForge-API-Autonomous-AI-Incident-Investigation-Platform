@@ -13,6 +13,12 @@ class PatchApprovalCreate(BaseModel):
     proposed_files: dict[str, str]
 
 
+class PatchGenerationRequest(BaseModel):
+    investigation_id: int = Field(gt=0)
+
+    model_config = {"extra": "forbid"}
+
+
 class ApprovalDecision(BaseModel):
     decision: Literal["APPROVED", "REJECTED"]
     note: str = Field(default="", max_length=2000)

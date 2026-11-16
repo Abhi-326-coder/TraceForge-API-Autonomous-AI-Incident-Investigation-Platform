@@ -7,6 +7,7 @@ from app.schemas.approval import (
     ApprovalDecision,
     PatchApprovalCreate,
     PatchApprovalResponse,
+    PatchGenerationRequest,
 )
 from app.services.approval_service import (
     create_patch_approval,
@@ -14,11 +15,40 @@ from app.services.approval_service import (
     get_patch_approval,
 )
 from app.security import get_current_user
+from app.services.patch_generation_service import PatchGenerationService
+from app.services.generated_patch_persistence_service import GeneratedPatchPersistenceService
 
 router = APIRouter(
     prefix="/api/patches",
     tags=["Patch Approvals"],
 )
+
+
+@router.post(
+    "/generate",
+    response_model=PatchApprovalResponse,
+    status_code=201,
+)
+async def generate_patch(
+    payload: PatchGenerationRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Generate and persist an AI patch proposal in PENDING state."""
+    generation_service = PatchGenerationService()
+    persistence_service = GeneratedPatchPersistenceService()
+    try:
+        generated = await generation_service.generate(
+            db, payload.investigation_id, current_user
+        )
+        return persistence_service.persist(
+            db, payload.investigation_id, generated, current_user
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(500, "Patch generation or persistence failed.") from exc
 
 
 @router.post(

@@ -131,6 +131,10 @@ Return a structured PatchGenerationResult.
             summary=result.summary,
             diff="".join(diff_lines),
             changed_files=list(proposed_by_path.keys()),
+            proposed_files={
+                path: modified_file.proposed_content
+                for path, modified_file in proposed_by_path.items()
+            },
             tests_to_run=result.tests_to_run,
             risks=result.risks,
             assumptions=result.assumptions,
