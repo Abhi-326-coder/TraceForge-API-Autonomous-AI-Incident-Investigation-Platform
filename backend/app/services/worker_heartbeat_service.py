@@ -1,4 +1,5 @@
 import threading
+from uuid import UUID
 from sqlalchemy.orm import Session
 
 from app.db.database import SessionLocal
@@ -13,10 +14,12 @@ class WorkerHeartbeat:
         self,
         investigation_id: int,
         worker_id: str,
+        lease_token: UUID,
         interval_seconds: int = 30,
     ):
         self.investigation_id = investigation_id
         self.worker_id = worker_id
+        self.lease_token = lease_token
         self.interval_seconds = interval_seconds
 
         self.stop_event = threading.Event()
@@ -41,6 +44,7 @@ class WorkerHeartbeat:
                     db,
                     self.investigation_id,
                     self.worker_id,
+                    self.lease_token,
                 )
 
                 if not renewed:

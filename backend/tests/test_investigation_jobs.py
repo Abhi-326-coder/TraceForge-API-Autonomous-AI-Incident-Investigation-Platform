@@ -35,8 +35,11 @@ def test_permanent_gemini_errors_are_not_retried(
         MagicMock(side_effect=error_type("Gemini request rejected")),
     )
 
-    with pytest.raises(RuntimeError, match="GEMINI_API_KEY"):
+    with pytest.raises(RuntimeError) as exc_info:
         run_investigation_task.run(4)
+
+    assert "Gemini request rejected" not in str(exc_info.value)
+    assert "GEMINI_API_KEY" not in str(exc_info.value)
 
 
 def test_celery_retry_requeues_failed_investigation(monkeypatch):
@@ -73,6 +76,7 @@ def test_celery_retry_requeues_failed_investigation(monkeypatch):
     execute.assert_called_once_with(
         investigation_id=4,
         worker_id="retry-task-id",
+        final_attempt=False,
     )
     db.close.assert_called_once()
 

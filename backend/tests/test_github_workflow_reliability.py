@@ -62,3 +62,41 @@ def test_github_failure_does_not_persist_success_state_and_is_audited(db_session
     db_session.refresh(patch)
     assert patch.github_branch is None
     assert db_session.query(AuditEvent).filter(AuditEvent.action == "GITHUB_BRANCH_CREATED", AuditEvent.outcome == "FAILURE").count() == 1
+
+
+def test_pending_and_rejected_patches_cannot_start_github_branch(db_session, user_a, monkeypatch):
+    _, patch = workflow_patch(db_session, user_a)
+    class ForbiddenProvider:
+        def __init__(self): raise AssertionError("GitHub provider must not be constructed")
+    monkeypatch.setattr(github_branch_service, "GitHubRESTProvider", ForbiddenProvider)
+    monkeypatch.setattr(github_pr_service, "GitHubWriteProvider", ForbiddenProvider)
+    patch.status = "PENDING"; db_session.commit()
+    with pytest.raises(ValueError, match="approved"):
+        asyncio.run(github_branch_service.create_branch_for_approval(db_session, user_a, patch.id, "x", "y", "z"))
+    with pytest.raises(ValueError, match="approved"):
+        asyncio.run(github_pr_service.commit_approved_patch(db_session, user_a, patch.id, "x", "y", "z"))
+    patch.status = "REJECTED"; db_session.commit()
+    with pytest.raises(ValueError, match="approved"):
+        asyncio.run(github_branch_service.create_branch_for_approval(db_session, user_a, patch.id, "x", "y", "z"))
+    with pytest.raises(ValueError, match="approved"):
+        asyncio.run(github_pr_service.commit_approved_patch(db_session, user_a, patch.id, "x", "y", "z"))
+
+
+def test_demo_github_flow_is_simulated_without_repository_or_provider(db_session, user_a, monkeypatch):
+    monkeypatch.setattr(github_branch_service.settings, "demo_mode", True)
+    monkeypatch.setattr(github_pr_service.settings, "demo_mode", True)
+    _, patch = workflow_patch(db_session, user_a)
+    db_session.query(ProjectConnection).delete()
+    db_session.commit()
+
+    class ForbiddenProvider:
+        def __init__(self): raise AssertionError("Demo mode must not construct a GitHub provider")
+
+    monkeypatch.setattr(github_branch_service, "GitHubRESTProvider", ForbiddenProvider)
+    monkeypatch.setattr(github_pr_service, "GitHubWriteProvider", ForbiddenProvider)
+    branch = asyncio.run(github_branch_service.create_branch_for_approval(db_session, user_a, patch.id, "", "", ""))
+    pr = asyncio.run(github_pr_service.commit_approved_patch(db_session, user_a, patch.id, "", "", ""))
+
+    assert branch["simulated"] is True and branch["sha"] == "SIMULATED"
+    assert pr["simulated"] is True and pr["pr_number"] is None and pr["pr_url"] is None
+    assert "no GitHub" in pr["message"]

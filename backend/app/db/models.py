@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from sqlalchemy import JSON
 
-from sqlalchemy import DateTime, ForeignKey, String, Text, Integer, Column, Boolean, Index
+from sqlalchemy import DateTime, ForeignKey, String, Text, Integer, Column, Boolean, Index, Uuid
 from sqlalchemy.sql import func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from pgvector.sqlalchemy import (
@@ -200,11 +200,22 @@ class Investigation(Base):
     )
     
     worker_id = Column(String(255), nullable=True)
+    lease_token = Column(Uuid(as_uuid=True), nullable=True)
     heartbeat_at = Column(DateTime(timezone=True), nullable=True)
     lease_expires_at = Column(DateTime(timezone=True), nullable=True)
+    failure_category = Column(String(50), nullable=True)
+    failure_message = Column(Text, nullable=True)
+    failure_is_terminal = Column(Boolean, nullable=True)
     
 class Evidence(Base):
     __tablename__ = "evidence"
+    __table_args__ = (
+        Index(
+            "ix_evidence_idempotency_key_unique",
+            "idempotency_key",
+            unique=True,
+        ),
+    )
 
     id: Mapped[int] = mapped_column(
         primary_key=True,
@@ -240,6 +251,8 @@ class Evidence(Base):
         String(500),
         nullable=True,
     )
+
+    idempotency_key = Column(String(64), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
@@ -315,6 +328,7 @@ class PatchApproval(Base):
     changed_files = Column(JSON, nullable=False)
     tests_to_run = Column(JSON, nullable=False)
     risks = Column(JSON, nullable=False)
+    assumptions = Column(JSON, nullable=False, default=list)
 
     status = Column(
         String(20),

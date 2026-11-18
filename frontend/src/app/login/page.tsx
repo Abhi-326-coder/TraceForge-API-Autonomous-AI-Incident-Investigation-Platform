@@ -20,6 +20,24 @@ export default function LoginPage() {
   const [formError, setFormError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
+  const [demoError, setDemoError] = useState("");
+  const [isPreparingDemo, setIsPreparingDemo] = useState(false);
+
+  async function prepareDemoAccount() {
+    setDemoError("");
+    setIsPreparingDemo(true);
+    try {
+      const response = await fetch("/api/auth/login", { method: "GET", cache: "no-store" });
+      const account = await response.json() as { email?: string; password?: string; detail?: string };
+      if (!response.ok || !account.email || !account.password) throw new Error(account.detail ?? "Unable to prepare demo account.");
+      setEmail(account.email);
+      setPassword(account.password);
+    } catch (error) {
+      setDemoError(error instanceof Error ? error.message : "Unable to prepare demo account.");
+    } finally {
+      setIsPreparingDemo(false);
+    }
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -62,6 +80,7 @@ export default function LoginPage() {
               {formError ? <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{formError}</p> : null}
               {isComplete ? <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">Signed in successfully. Redirecting…</p> : null}
               <Button className="w-full" type="submit" disabled={isSubmitting || isComplete}>{isSubmitting ? "Signing in…" : "Sign in"}</Button>
+              {process.env.NEXT_PUBLIC_DEMO_MODE === "true" ? <div className="space-y-2 border-t pt-4"><Button className="w-full" variant="secondary" type="button" disabled={isPreparingDemo || isSubmitting} onClick={() => void prepareDemoAccount()}>{isPreparingDemo ? "Preparing demo account…" : "Create a temporary demo account"}</Button><p className="text-xs leading-5 text-muted">Creates a random temporary login; no shared password is used.</p>{demoError ? <p role="alert" className="text-xs text-danger">{demoError}</p> : null}</div> : null}
             </form>
           </div>
           <p className="mt-5 text-center text-xs leading-5 text-muted">Secure session handling is managed by TraceForge.</p>

@@ -52,3 +52,12 @@ def test_settings_rejects_empty_postgres_credentials(empty_key):
 
     with pytest.raises(ValidationError, match="must be set and non-empty"):
         Settings(_env_file=None, **kwargs)
+
+
+def test_demo_settings_do_not_require_external_api_credentials():
+    kwargs = _settings_kwargs()
+    kwargs.pop("gemini_api_key")
+    kwargs.pop("GITHUB_PERSONAL_ACCESS_TOKEN")
+    settings = Settings(_env_file=None, debug=True, demo_mode=True, **kwargs)
+    assert settings.gemini_api_key == ""
+    assert settings.github_token == ""

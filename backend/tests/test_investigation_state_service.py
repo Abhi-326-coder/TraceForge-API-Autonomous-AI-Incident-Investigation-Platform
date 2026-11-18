@@ -1,4 +1,5 @@
 from unittest.mock import MagicMock
+from uuid import UUID
 
 import pytest
 
@@ -16,7 +17,7 @@ def test_queued_investigation_can_be_claimed():
 
     result = claim_investigation(db, 10, "worker-1")
 
-    assert result is True
+    assert isinstance(result, UUID)
     db.commit.assert_called_once()
 
 
@@ -26,7 +27,7 @@ def test_duplicate_task_cannot_claim_already_running_investigation():
 
     result = claim_investigation(db, 10, "worker-2")
 
-    assert result is False
+    assert result is None
 
 
 def test_completed_investigation_cannot_be_claimed():
@@ -35,7 +36,7 @@ def test_completed_investigation_cannot_be_claimed():
 
     result = claim_investigation(db, 10, "worker-1")
 
-    assert result is False
+    assert result is None
 
 
 def test_expired_running_lease_can_be_reclaimed():
@@ -44,14 +45,14 @@ def test_expired_running_lease_can_be_reclaimed():
 
     result = claim_investigation(db, 10, "replacement-worker")
 
-    assert result is True
+    assert isinstance(result, UUID)
 
 
 def test_complete_investigation_success():
     db = MagicMock()
     db.execute.return_value.rowcount = 1
 
-    result = complete_investigation(db, 10, "worker-1")
+    result = complete_investigation(db, 10, "worker-1", UUID(int=1))
 
     assert result is True
 
@@ -60,7 +61,7 @@ def test_fail_investigation_success():
     db = MagicMock()
     db.execute.return_value.rowcount = 1
 
-    result = fail_investigation(db, 10, "worker-1")
+    result = fail_investigation(db, 10, "worker-1", UUID(int=1))
 
     assert result is True
 

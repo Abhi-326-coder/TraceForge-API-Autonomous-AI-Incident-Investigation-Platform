@@ -13,6 +13,7 @@ celery_app = Celery(
     include=[
     "app.tasks.investigation_tasks",
     "app.tasks.outbox_tasks",
+    "app.tasks.recovery_tasks",
     ],
 )
 
@@ -32,6 +33,10 @@ celery_app.conf.update(
         "dispatch-outbox-every-15-seconds": {
             "task": "dispatch_outbox_events",
             "schedule": 15.0,
+        },
+        "recover-stale-investigations-every-30-seconds": {
+            "task": "recover_stale_investigations",
+            "schedule": 30.0,
         },
     },
 )

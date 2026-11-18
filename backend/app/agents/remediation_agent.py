@@ -12,6 +12,7 @@ class RemediationAgent:
             model=settings.gemini_model,
             google_api_key=settings.gemini_api_key,
             temperature=0,
+            max_retries=0,
         )
 
         self.structured_llm = self.llm.with_structured_output(

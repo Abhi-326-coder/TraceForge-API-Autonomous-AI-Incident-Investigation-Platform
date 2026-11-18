@@ -4,7 +4,7 @@ from sqlalchemy.orm import sessionmaker
 
 from app.db.database import Base
 from app.db.models import (
-    AuditEvent, Incident, Investigation, PatchApproval, Project,
+    AuditEvent, Evidence, Incident, Investigation, PatchApproval, Project,
     ProjectConnection, User,
 )
 
@@ -18,6 +18,7 @@ def db_session():
         AuditEvent.__table__,
         Incident.__table__,
         Investigation.__table__,
+        Evidence.__table__,
         PatchApproval.__table__,
         ProjectConnection.__table__,
     ]

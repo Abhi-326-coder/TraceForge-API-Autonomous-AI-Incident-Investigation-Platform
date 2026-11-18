@@ -16,3 +16,4 @@ class InvestigationEvent(BaseModel):
     data: dict[str, Any] = {}
 
     timestamp: datetime
+    event_id: str | None = None

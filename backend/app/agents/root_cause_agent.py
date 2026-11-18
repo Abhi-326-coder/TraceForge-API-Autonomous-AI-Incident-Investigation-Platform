@@ -7,11 +7,16 @@ from app.schemas.root_cause import RootCauseResult
 class RootCauseAgent:
 
     def __init__(self):
+        if settings.demo_mode:
+            self.llm = None
+            self.structured_llm = None
+            return
 
         self.llm = ChatGoogleGenerativeAI(
             model=settings.gemini_model,
             google_api_key=settings.gemini_api_key,
             temperature=0,
+            max_retries=0,
         )
 
         self.structured_llm = (
@@ -24,6 +29,19 @@ class RootCauseAgent:
         self,
         evidence: list[dict],
     ) -> RootCauseResult:
+
+        if settings.demo_mode:
+            ids = [item["id"] for item in evidence]
+            return RootCauseResult(
+                root_cause="Checkout database connection pool exhaustion",
+                explanation=("The seeded checkout logs show the connection pool was exhausted immediately "
+                             "before transaction failures and HTTP 500 responses. This is the strongest "
+                             "direct explanation available in the demo evidence."),
+                confidence=0.86 if ids else 0.35,
+                evidence_ids=ids,
+                alternative_causes=[{"cause": "Database outage", "reason_not_primary": "The sample contains pool exhaustion but no direct evidence of database unavailability."}],
+                uncertainty="The demo includes runtime logs only; database health and pool configuration were not independently inspected.",
+            )
 
         evidence_text = "\n\n".join(
             [

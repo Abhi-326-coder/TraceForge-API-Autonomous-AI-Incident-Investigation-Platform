@@ -6,7 +6,15 @@ def get_demo_scenario() -> dict:
 
     return {
         "mode": "DEMO",
-        "incident": incident,
+        "incident": {
+            "id": incident.id,
+            "title": incident.title,
+            "description": incident.description,
+            "service": incident.service,
+            "severity": incident.severity,
+            "status": incident.status,
+        },
         "logs": get_logs(incident.service),
         "metrics": get_metrics(incident.service),
+        "notice": "Deterministic simulated scenario; no external AI or GitHub operations are performed.",
     }

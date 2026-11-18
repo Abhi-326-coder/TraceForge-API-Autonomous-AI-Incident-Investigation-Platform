@@ -67,6 +67,7 @@ def test_generation_route_persists_response_pending_and_never_writes_github(rout
     payload = response.json()
     assert payload["investigation_id"] == investigation.id
     assert payload["patch_summary"] == "Proposal" and payload["status"] == "PENDING"
+    assert payload["proposed_files"] == {"app.py": "complete contents"}
     assert set(payload) >= {"id", "diff", "changed_files", "tests_to_run", "risks", "created_at"}
     assert [call[0] for call in calls] == ["generate", "persist"]
     assert not hasattr(Generation, "create_branch") and not hasattr(Persistence, "commit_approved_patch")

@@ -1,5 +1,7 @@
 
 from datetime import datetime, timezone
+import hashlib
+import json
 
 from app.agents.gemini_log_agent import GeminiLogAgent
 from app.agents.supervisor_agent import SupervisorAgent
@@ -9,7 +11,18 @@ from app.db.database import SessionLocal
 from app.db.models import Evidence
 from app.schemas.event import InvestigationEvent
 from app.services.event_bus import event_service
-from app.services.evidence_service import create_evidence
+from app.services.evidence_service import (
+    create_evidence,
+    find_evidence_by_source,
+)
+from app.services.investigation_execution_context import (
+    current_investigation_execution,
+)
+from app.services.investigation_state_service import (
+    require_active_investigation_lease,
+)
+from app.config import settings
+from simulator.main import get_logs, get_metrics
 
 
 def publish_event(
@@ -19,6 +32,13 @@ def publish_event(
     agent: str | None = None,
     data: dict | None = None,
 ):
+    event_id = hashlib.sha256(
+        json.dumps(
+            [investigation_id, agent, event_type],
+            ensure_ascii=False,
+            separators=(",", ":"),
+        ).encode("utf-8")
+    ).hexdigest()
     event = InvestigationEvent(
         event_type=event_type,
         investigation_id=investigation_id,
@@ -26,9 +46,30 @@ def publish_event(
         agent=agent,
         data=data or {},
         timestamp=datetime.now(timezone.utc),
+        event_id=event_id,
     )
 
-    event_service.publish(event)
+    execution = current_investigation_execution()
+    if execution is None or execution.investigation_id != investigation_id:
+        raise RuntimeError("Investigation node has no active execution lease.")
+
+    db = SessionLocal()
+    try:
+        require_active_investigation_lease(
+            db,
+            investigation_id,
+            execution.worker_id,
+            execution.lease_token,
+        )
+        # Hold the investigation row lock through event publication so stale
+        # executions cannot publish after a replacement has claimed the row.
+        event_service.publish(event)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        db.close()
 
 
 def supervisor_node(state):
@@ -72,30 +113,47 @@ def log_investigation_node(state):
         "log_agent",
     )
 
-    agent = GeminiLogAgent()
-
-    result = agent.investigate(
-        incident=state["incident"]
-    )
-
-    # Save the agent's investigation summary as evidence.
+    source_reference = state["incident"]["service"]
+    execution = current_investigation_execution()
     db = SessionLocal()
-
     try:
-        evidence = create_evidence(
+        existing_evidence = find_evidence_by_source(
             db=db,
             investigation_id=investigation_id,
             source_type="LOG_ANALYSIS",
             provider="SIMULATOR",
-            title="Log Agent Investigation Summary",
-            content=result,
-            source_reference=state["incident"]["service"],
+            source_reference=source_reference,
+            execution=execution,
         )
-
-        evidence_id = evidence.id
-
     finally:
         db.close()
+
+    if existing_evidence is not None:
+        # A prior node execution may have committed evidence and then failed
+        # before its checkpoint. Reuse it without repeating the Gemini call.
+        result = existing_evidence.content
+        evidence_id = existing_evidence.id
+    else:
+        agent = GeminiLogAgent()
+        result = agent.investigate(incident=state["incident"])
+
+        # Save the agent's summary and revalidate the lease in the same
+        # transaction as the evidence insert or idempotent reuse.
+        db = SessionLocal()
+        try:
+            evidence = create_evidence(
+                db=db,
+                investigation_id=investigation_id,
+                source_type="LOG_ANALYSIS",
+                provider="SIMULATOR",
+                title="Log Agent Investigation Summary",
+                content=result,
+                source_reference=source_reference,
+                execution=execution,
+            )
+            evidence_id = evidence.id
+        finally:
+            db.close()
 
     publish_event(
         investigation_id,
@@ -124,6 +182,21 @@ def log_investigation_node(state):
 
 
 def metrics_investigation_node(state):
+    if settings.demo_mode:
+        metrics = get_metrics(state["incident"]["service"])
+        summary = "DEMO metrics: " + ", ".join(f"{key}={value}" for key, value in sorted(metrics.items()))
+        db = SessionLocal()
+        try:
+            evidence = create_evidence(
+                db=db, investigation_id=state["investigation_id"],
+                source_type="METRICS", provider="SIMULATOR",
+                title="Seeded service metrics", content=summary,
+                source_reference=None, execution=current_investigation_execution(),
+            )
+        finally:
+            db.close()
+        publish_event(state["investigation_id"], "evidence_collected", "Seeded metrics saved as evidence.", "metrics_agent", {"evidence_id": evidence.id})
+        return {"findings": [{"agent": "metrics", "summary": summary, "evidence_id": evidence.id}]}
     publish_event(
         state["investigation_id"],
         "agent_completed",
@@ -223,6 +296,17 @@ def root_cause_node(state):
     )
 
     final_finding = result.model_dump()
+
+    db = SessionLocal()
+    try:
+        create_evidence(
+            db=db, investigation_id=investigation_id,
+        source_type="ROOT_CAUSE", provider="TRACEFORGE_DEMO" if settings.demo_mode else "TRACEFORGE",
+            title="Root cause analysis", content=json.dumps(final_finding),
+            source_reference=f"investigation:{investigation_id}:root-cause", execution=current_investigation_execution(),
+        )
+    finally:
+        db.close()
 
     publish_event(
         investigation_id,

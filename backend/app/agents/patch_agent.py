@@ -13,6 +13,10 @@ from app.guardrails.validators import validate_repository_path
 
 class PatchAgent:
     def __init__(self):
+        if settings.demo_mode:
+            self.llm = None
+            self.structured_llm = None
+            return
         self.llm = ChatGoogleGenerativeAI(
             model=settings.gemini_model,
             google_api_key=settings.gemini_api_key,

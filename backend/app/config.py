@@ -17,12 +17,10 @@ class Settings(BaseSettings):
     postgres_port: int = 5432
     redis_url: str = "redis://localhost:6379/0"
 
-    gemini_api_key: str
+    gemini_api_key: str = ""
     gemini_model: str = "gemini-3.8-flash"
 
-    github_token: str = Field(
-        validation_alias="GITHUB_PERSONAL_ACCESS_TOKEN"
-    )
+    github_token: str = Field(default="", validation_alias="GITHUB_PERSONAL_ACCESS_TOKEN")
     github_mcp_url: str = (
         "https://api.githubcopilot.com/mcp/readonly"
     )
@@ -66,7 +64,14 @@ class Settings(BaseSettings):
                 "Token expiration must be greater than zero"
             )
 
+        if not self.demo_mode and not self.gemini_api_key.strip():
+            raise ValueError("GEMINI_API_KEY is required when demo mode is disabled")
+
+        if not self.demo_mode and not self.github_token.strip():
+            raise ValueError("GITHUB_PERSONAL_ACCESS_TOKEN is required when demo mode is disabled")
+
         return self
+
 
     @property
     def database_url(self) -> str:

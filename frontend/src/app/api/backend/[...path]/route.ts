@@ -6,13 +6,21 @@ const backendUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 async function forward(request: Request, context: { params: Promise<{ path: string[] }> }) {
   const token = (await cookies()).get(COOKIE_NAME)?.value;
-  if (!token) return NextResponse.json({ detail: "Authentication required." }, { status: 401 });
-
   const { path } = await context.params;
+  if (!token && !(process.env.DEMO_MODE === "true" && path[0] === "api" && path[1] === "demo" && path[2] === "seed")) return NextResponse.json({ detail: "Authentication required." }, { status: 401 });
+  if (process.env.DEMO_MODE === "true" && path[0] === "api" && path[1] === "patches" && /^\d+$/.test(path[2] ?? "") && ["branch", "pull-request"].includes(path[3] ?? "")) {
+    const approvalResponse = await fetch(`${backendUrl}/api/patches/${path[2]}`, {
+      headers: { Authorization: `Bearer ${token}` }, cache: "no-store",
+    });
+    if (approvalResponse.ok) {
+      const approval = await approvalResponse.json() as { status?: string };
+      if (approval.status !== "APPROVED") return NextResponse.json({ detail: "Patch must be approved first." }, { status: 409 });
+    }
+  }
   const url = new URL(`${backendUrl}/${path.join("/")}`);
   url.search = new URL(request.url).search;
   const headers = new Headers();
-  headers.set("Authorization", `Bearer ${token}`);
+  if (token) headers.set("Authorization", `Bearer ${token}`);
   const contentType = request.headers.get("content-type");
   if (contentType) headers.set("Content-Type", contentType);
 

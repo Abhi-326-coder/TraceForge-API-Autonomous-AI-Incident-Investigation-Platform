@@ -8,6 +8,8 @@ from app.db.models import User
 from app.security import get_current_user
 from app.services.authorization_service import get_owned_investigation
 from app.tasks.investigation_tasks import run_investigation_task
+from app.config import settings
+from app.services.investigation_worker_service import execute_investigation
 
 router = APIRouter(
     prefix="/api/investigations",
@@ -35,6 +37,20 @@ def enqueue_investigation(
         )
 
     try:
+        if settings.demo_mode:
+            task_id = f"demo-investigation-{investigation_id}"
+            execute_investigation(
+                investigation_id=investigation_id,
+                worker_id=task_id,
+                final_attempt=True,
+            )
+            return {
+                "investigation_id": investigation_id,
+                "task_id": task_id,
+                "status": "COMPLETED",
+                "mode": "DEMO",
+                "message": "Deterministic demo investigation completed without external AI calls.",
+            }
         task = run_investigation_task.delay(
             investigation_id
         )

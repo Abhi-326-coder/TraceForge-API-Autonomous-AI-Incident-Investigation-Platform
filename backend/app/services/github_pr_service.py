@@ -3,10 +3,11 @@ import json
 
 from sqlalchemy.orm import Session
 
-from app.db.models import PatchApproval, User
+from app.db.models import PatchApproval, User, Investigation, Incident
 from app.providers.github_writes import GitHubWriteProvider
-from app.services.authorization_service import get_patch_github_repository
+from app.services.authorization_service import get_patch_github_repository, get_owned_patch
 from app.services.audit_service import record_audit_event
+from app.config import settings
 
 
 def calculate_patch_hash(approval: PatchApproval) -> str:
@@ -33,7 +34,12 @@ async def commit_approved_patch(
     base_branch: str,
 ) -> dict:
     # Request target values are retained for API compatibility but never trusted.
-    approval, project_id, owner, repo, base_branch = get_patch_github_repository(db, patch_id, current_user)
+    if settings.demo_mode:
+        approval = get_owned_patch(db, patch_id, current_user)
+        investigation = db.get(Investigation, approval.investigation_id)
+        project_id = db.get(Incident, investigation.incident_id).project_id
+    else:
+        approval, project_id, owner, repo, base_branch = get_patch_github_repository(db, patch_id, current_user)
 
     if approval.status != "APPROVED":
         raise ValueError("Patch must be approved first")
@@ -71,7 +77,20 @@ async def commit_approved_patch(
         )
 
     if approval.github_pr_number:
-        return {"commit_sha": approval.github_commit_sha, "branch": branch, "pr_number": approval.github_pr_number, "pr_url": approval.github_pr_url, "pr_state": approval.github_pr_state, "draft": True}
+        result = {"commit_sha": approval.github_commit_sha, "branch": branch, "pr_number": approval.github_pr_number, "pr_url": approval.github_pr_url, "pr_state": approval.github_pr_state, "draft": True}
+        if approval.github_pr_state == "SIMULATED":
+            result.update(simulated=True, message="Demo only: no GitHub commit or pull request was created.")
+        return result
+
+    if settings.demo_mode:
+        result = {"commit_sha": "SIMULATED", "branch": branch, "pr_number": None,
+                  "pr_url": None, "pr_state": "SIMULATED", "draft": True,
+                  "simulated": True, "message": "Demo only: no GitHub commit or pull request was created."}
+        approval.github_commit_sha = "SIMULATED"
+        approval.github_pr_state = "SIMULATED"
+        record_audit_event(db, action="GITHUB_PR_SIMULATED", outcome="SIMULATED", actor_user_id=current_user.id, resource_type="PatchApproval", resource_id=approval.id, metadata={"patch_id": approval.id, "project_id": project_id})
+        db.commit()
+        return result
 
     provider = GitHubWriteProvider()
 

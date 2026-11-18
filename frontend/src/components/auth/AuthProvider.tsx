@@ -29,7 +29,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  useEffect(() => { void refreshUser(); }, [refreshUser]);
+  useEffect(() => {
+    let active = true;
+    getCurrentUser().then(
+      (currentUser) => {
+        if (!active) return;
+        setUser(currentUser);
+        setStatus("authenticated");
+      },
+      () => {
+        if (!active) return;
+        setUser(null);
+        setStatus("unauthenticated");
+      },
+    );
+    return () => { active = false; };
+  }, []);
 
   useEffect(() => {
     const handleSessionExpired = () => {

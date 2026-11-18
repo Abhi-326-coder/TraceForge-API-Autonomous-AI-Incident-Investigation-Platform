@@ -6,6 +6,7 @@ from fastapi import HTTPException
 from app.db.models import Incident, Investigation, PatchApproval, Project, ProjectConnection
 from app.routes import incidents as incident_routes
 from app.routes.connections import create_connection, list_connections
+from app.routes.investigations import investigation_events
 from app.schemas.approval import ApprovalDecision
 from app.schemas.connection import ConnectionCreate
 from app.services.approval_service import decide_patch_approval, get_patch_approval
@@ -76,3 +77,13 @@ def test_connections_require_project_owner(db_session, user_a, user_b):
     with pytest.raises(HTTPException) as exc: create_connection(project_b.id, ConnectionCreate(connection_type="github", provider="github", config={}), db_session, user_a)
     assert exc.value.status_code == 404
     assert len(list_connections(project_b.id, db_session, user_b)) == 1
+
+
+def test_investigation_event_stream_requires_owned_investigation(db_session, user_a, user_b):
+    _, _, patch = owned_resources(db_session, user_b)
+    investigation_id = patch.investigation_id
+    with pytest.raises(HTTPException) as exc:
+        asyncio.run(investigation_events(investigation_id, db_session, user_a))
+    assert exc.value.status_code == 404
+    response = asyncio.run(investigation_events(investigation_id, db_session, user_b))
+    assert response.media_type == "text/event-stream"

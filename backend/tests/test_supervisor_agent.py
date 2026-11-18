@@ -18,7 +18,8 @@ def test_supervisor_configures_bounded_gemini_requests(monkeypatch):
     SupervisorAgent()
 
     assert llm_class.call_args.kwargs["request_timeout"] == 30
-    assert llm_class.call_args.kwargs["retries"] == 1
+    # Celery owns investigation retries; do not multiply them in the provider.
+    assert llm_class.call_args.kwargs["max_retries"] == 0
 
 
 def test_supervisor_propagates_gemini_timeout(monkeypatch):

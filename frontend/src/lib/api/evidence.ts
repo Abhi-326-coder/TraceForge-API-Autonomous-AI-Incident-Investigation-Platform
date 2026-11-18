@@ -1,5 +1,5 @@
 import { apiClient } from "../api-client.ts";
-import type { Evidence } from "@/types/investigation";
+import type { Evidence, RootCause } from "@/types/investigation";
 
 export function parseEvidence(value: unknown): Evidence {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Invalid evidence response.");
@@ -14,4 +14,5 @@ export function parseEvidence(value: unknown): Evidence {
 
 export const evidenceApi = {
   list: async (investigationId: number) => (await apiClient.get<unknown[]>(`/api/investigations/${investigationId}/evidence`)).map(parseEvidence),
+  rootCause: (investigationId: number) => apiClient.get<RootCause>(`/api/investigations/${investigationId}/root-cause`),
 };

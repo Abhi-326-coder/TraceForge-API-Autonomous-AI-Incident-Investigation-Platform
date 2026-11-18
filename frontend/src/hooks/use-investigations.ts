@@ -20,6 +20,14 @@ export function useIncidents() {
   return useQuery({ queryKey: queryKeys.incidents.list(), queryFn: incidentsApi.list });
 }
 
+export function useSeedDemoIncidentMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({ mutationFn: incidentsApi.seedDemo, onSuccess: () => Promise.all([
+    queryClient.invalidateQueries({ queryKey: queryKeys.incidents.list() }),
+    queryClient.invalidateQueries({ queryKey: queryKeys.projects.list() }),
+  ]) });
+}
+
 export function useIncidentLogs(incidentId: number | null) {
   return useQuery({
     queryKey: queryKeys.incidents.logsOrUnresolved(incidentId),
@@ -50,6 +58,14 @@ export function useInvestigationEvidence(investigationId: number | null) {
     queryFn: () => evidenceApi.list(investigationId!),
     enabled: investigationId !== null,
   });
+}
+
+export function useInvestigationRootCause(investigationId: number | null) {
+  return useQuery({ queryKey: investigationId === null ? ["investigations", "unresolved", "root-cause"] : ["investigations", investigationId, "root-cause"], queryFn: () => evidenceApi.rootCause(investigationId!), enabled: investigationId !== null, retry: false });
+}
+
+export function useInvestigationPatches(investigationId: number | null) {
+  return useQuery({ queryKey: investigationId === null ? ["investigations", "unresolved", "patches"] : ["investigations", investigationId, "patches"], queryFn: () => patchesApi.listForInvestigation(investigationId!), enabled: investigationId !== null });
 }
 
 export function startInvestigationMutationOptions(incidentId: number, queryClient: Pick<QueryClient, "invalidateQueries">) {
@@ -97,6 +113,8 @@ export function useRootCauseMutation(incidentId: number) {
 }
 
 export function usePatch(patchId: number | null) { return useQuery({ queryKey: patchId === null ? ["patches", "unresolved"] : queryKeys.patches.detail(patchId), queryFn: () => patchesApi.get(patchId!), enabled: patchId !== null }); }
+export function generatePatchMutationOptions() { return { mutationFn: (investigationId: number) => patchesApi.generate(investigationId) }; }
+export function useGeneratePatchMutation() { return useMutation(generatePatchMutationOptions()); }
 export function useCreatePatchMutation() { const queryClient = useQueryClient(); return useMutation({ mutationFn: (input: CreatePatchInput) => patchesApi.create(input), onSuccess: (patch) => queryClient.invalidateQueries({ queryKey: queryKeys.patches.detail(patch.id) }) }); }
 export function patchDecisionMutationOptions(patchId: number, queryClient: Pick<QueryClient, "invalidateQueries">) { return { mutationFn: ({ decision, note }: { decision: PatchDecision; note: string }) => patchesApi.decide(patchId, decision, note), onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.patches.detail(patchId) }) }; }
 export function usePatchDecisionMutation(patchId: number) { const queryClient = useQueryClient(); return useMutation(patchDecisionMutationOptions(patchId, queryClient)); }

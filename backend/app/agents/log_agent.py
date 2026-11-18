@@ -1,8 +1,9 @@
 from sqlalchemy.orm import Session
 
-from app.db.models import Evidence, Incident, Investigation
+from app.db.models import Incident, Investigation
 from app.providers.simulator_logs import SimulatorLogProvider
 from app.schemas.finding import Finding
+from app.services.evidence_service import create_evidence
 from app.tools.logs import search_logs
 
 
@@ -39,7 +40,8 @@ class LogAgent:
             + database_result.logs
         ):
 
-            evidence = Evidence(
+            evidence = create_evidence(
+                db=self.db,
                 investigation_id=investigation.id,
                 source_type="logs",
                 provider="simulator",
@@ -51,10 +53,6 @@ class LogAgent:
                     f"{log.timestamp}"
                 ),
             )
-
-            self.db.add(evidence)
-            self.db.commit()
-            self.db.refresh(evidence)
 
             evidence_ids.append(evidence.id)
 

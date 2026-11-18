@@ -28,6 +28,7 @@ def persist_generated_patch(
         changed_files=generated_patch.changed_files,
         tests_to_run=generated_patch.tests_to_run,
         risks=generated_patch.risks,
+        assumptions=getattr(generated_patch, "assumptions", []),
         proposed_files=proposed_files,
     )
     try:

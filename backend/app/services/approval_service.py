@@ -78,6 +78,7 @@ def create_patch_approval(
         proposed_files=proposed_files,
         tests_to_run=payload.tests_to_run or [],
         risks=payload.risks or [],
+        assumptions=payload.assumptions or [],
         status="PENDING",
         patch_sha256=patch_hash,
     )

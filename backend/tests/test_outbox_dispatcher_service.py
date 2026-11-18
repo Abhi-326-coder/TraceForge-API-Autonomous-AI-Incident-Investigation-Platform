@@ -99,7 +99,7 @@ def test_duplicate_delivery_does_not_start_a_second_investigation(monkeypatch):
     )
     incident = SimpleNamespace(id=19)
     db.get.side_effect = [investigation, incident]
-    claim = MagicMock(return_value=False)
+    claim = MagicMock(return_value=None)
 
     monkeypatch.setattr(investigation_worker, "SessionLocal", lambda: db)
     monkeypatch.setattr(investigation_worker, "claim_investigation", claim)

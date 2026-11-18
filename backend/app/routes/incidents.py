@@ -13,6 +13,7 @@ from app.schemas.incident import (
 from simulator.main import get_logs, get_metrics
 from app.services.authorization_service import get_owned_project, get_owned_incident
 from app.security import get_current_user
+from app.config import settings
 
 router = APIRouter(
     prefix="/api/incidents",
@@ -67,12 +68,18 @@ def list_incidents(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return (
+    incidents = (
         db.query(Incident)
         .join(Project, Incident.project_id == Project.id)
         .filter(Project.owner_id == current_user.id)
         .all()
     )
+    if not settings.demo_mode:
+        return incidents
+    demo_incident = db.query(Incident).filter(Incident.external_id == "DEMO-CHECKOUT-001").first()
+    if demo_incident is not None and all(item.id != demo_incident.id for item in incidents):
+        incidents.append(demo_incident)
+    return incidents
 
 
 @router.get(

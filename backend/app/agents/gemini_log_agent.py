@@ -1,4 +1,5 @@
 import json
+from app.config import settings
 
 from app.agents.tools.log_tools import (
     SEARCH_LOGS_TOOL,
@@ -11,9 +12,16 @@ from app.llm.gemini import GeminiClient
 class GeminiLogAgent:
 
     def __init__(self):
-        self.gemini = GeminiClient()
+        self.gemini = None if settings.demo_mode else GeminiClient()
 
     def investigate(self, incident: dict):
+
+        if settings.demo_mode:
+            return (
+                "DEMO evidence: checkout-api logs show database connection pool exhaustion "
+                "followed by failed checkout transactions and HTTP 500 responses. "
+                "This supports connection pool saturation as the immediate failure mode."
+            )
 
         prompt = f"""
 You are a production incident investigation agent.

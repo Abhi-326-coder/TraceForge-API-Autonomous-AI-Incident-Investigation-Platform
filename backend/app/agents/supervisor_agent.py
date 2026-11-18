@@ -36,19 +36,21 @@ def _extract_text_content(content: object) -> str:
 class SupervisorAgent:
 
     def __init__(self):
-
-        self.llm = ChatGoogleGenerativeAI(
+        self.llm = None if settings.demo_mode else ChatGoogleGenerativeAI(
             model=settings.gemini_model,
             google_api_key=settings.gemini_api_key,
             temperature=0,
             request_timeout=30,
-            retries=1,
+            max_retries=0,
         )
 
     def create_plan(
         self,
         incident: dict,
     ):
+
+        if settings.demo_mode:
+            return ["logs", "metrics"]
 
         prompt = f"""
 You are the Supervisor Agent for TraceForge,

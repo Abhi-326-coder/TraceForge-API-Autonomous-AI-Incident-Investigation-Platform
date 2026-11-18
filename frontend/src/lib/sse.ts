@@ -54,6 +54,7 @@ export function connectInvestigationEvents(
 
   const eventTypes = [
     "investigation_started",
+    "investigation_started",
     "supervisor_started",
     "supervisor_completed",
     "agent_started",

@@ -78,6 +78,7 @@ export function parseRootCause(value: unknown): RootCause {
 
 export const incidentsApi = {
   list: () => apiClient.get<Incident[]>("/api/incidents"),
+  seedDemo: () => apiClient.post<Incident>("/api/demo/seed"),
   create: (projectId: number, input: CreateIncidentInput) => apiClient.post<Incident>("/api/incidents", input, { query: { project_id: projectId } }),
   get: (incidentId: number) => apiClient.get<Incident>(`/api/incidents/${incidentId}`),
   getLogs: (incidentId: number) => apiClient.get<IncidentLog[]>(`/api/incidents/${incidentId}/logs`),

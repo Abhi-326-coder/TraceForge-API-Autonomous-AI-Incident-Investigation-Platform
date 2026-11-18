@@ -19,9 +19,27 @@ from app.security import (
     verify_password,
 )
 from app.config import settings
+import secrets
 
 
 router = APIRouter(prefix="/api/auth", tags=["Authentication"])
+
+
+@router.post("/demo-account")
+def create_demo_account(db: Session = Depends(get_db)):
+    if not settings.demo_mode:
+        raise HTTPException(404, "Demo mode is disabled")
+    for _ in range(3):
+        # EmailStr rejects .local as a special-use domain during login.
+        # example.com is reserved for examples and passes normal validation.
+        email = f"demo-{secrets.token_hex(5)}@example.com"
+        if db.scalar(select(User).where(User.email == email)) is None:
+            password = secrets.token_urlsafe(18)
+            user = User(email=email, password_hash=hash_password(password))
+            db.add(user)
+            db.commit()
+            return {"email": email, "password": password}
+    raise HTTPException(503, "Could not create a demo account. Please try again.")
 
 
 @router.post(

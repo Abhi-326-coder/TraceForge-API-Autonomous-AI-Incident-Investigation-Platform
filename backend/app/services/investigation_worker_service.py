@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from uuid import UUID
 
 from sqlalchemy.orm import Session
 from opentelemetry import trace
@@ -13,8 +14,16 @@ from app.services.investigation_state_service import (
     complete_investigation,
     fail_investigation,
 )
+from app.services.investigation_retry import classify_investigation_failure
+from app.services.investigation_execution_context import (
+    InvestigationExecution,
+    bind_investigation_execution,
+)
 
 from app.services.worker_heartbeat_service import WorkerHeartbeat
+from app.config import settings
+from app.services.event_bus import event_service
+from app.schemas.event import InvestigationEvent
 
 
 tracer = get_tracer("traceforge.investigation")
@@ -51,8 +60,10 @@ def build_initial_state(
 def execute_investigation(
     investigation_id: int,
     worker_id: str,
+    final_attempt: bool = False,
 ) -> dict:
     db: Session = SessionLocal()
+    lease_token: UUID | None = None
 
     try:
         with tracer.start_as_current_span(
@@ -82,6 +93,47 @@ def execute_investigation(
                     "message": "Investigation already completed.",
                 }
 
+            # 2. Atomically claim the queued investigation.
+            lease_token = claim_investigation(
+                db,
+                investigation_id,
+                worker_id,
+            )
+
+            if lease_token is None:
+                return {
+                    "investigation_id": investigation_id,
+                    "status": "NOT_CLAIMED",
+                }
+
+            db.query(Investigation).filter(Investigation.id == investigation_id).update(
+                {Investigation.current_stage: "RUNNING"}, synchronize_session=False
+            )
+            db.commit()
+
+            event_service.publish(InvestigationEvent(
+                event_type="investigation_started", investigation_id=investigation_id,
+                message="Investigation execution started.", agent="supervisor",
+                data={"mode": "DEMO" if settings.demo_mode else "LIVE"},
+                timestamp=utc_now(), event_id=f"investigation-started-{investigation_id}",
+            ))
+
+            def update_stage(stage: str) -> None:
+                stage_db = SessionLocal()
+                try:
+                    stage_db.query(Investigation).filter(
+                        Investigation.id == investigation_id,
+                        Investigation.status == "RUNNING",
+                        Investigation.lease_token == lease_token,
+                        Investigation.worker_id == worker_id,
+                    ).update({Investigation.current_stage: stage}, synchronize_session=False)
+                    stage_db.commit()
+                finally:
+                    stage_db.close()
+
+            # Validate related input only after acquiring the lease so an
+            # irrecoverable relationship failure can be persisted through the
+            # same token-fenced failure transition as execution errors.
             incident = db.get(
                 Incident,
                 investigation.incident_id,
@@ -92,25 +144,16 @@ def execute_investigation(
                     "Incident associated with investigation not found"
                 )
 
-            # 2. Atomically claim the queued investigation.
-            claimed = claim_investigation(
-                db,
-                investigation_id,
-                worker_id,
-            )
-
-            if not claimed:
-                return {
-                    "investigation_id": investigation_id,
-                    "status": "NOT_CLAIMED",
-                }
-
             heartbeat = WorkerHeartbeat(
                 investigation_id=investigation_id,
                 worker_id=worker_id,
+                lease_token=lease_token,
             )
 
             heartbeat.start()
+
+            # Stage updates are delivered through graph events; the existing
+            # outbox and status API remain authoritative for worker lifecycle.
 
             # 3. Prepare initial LangGraph state.
             initial_state = build_initial_state(
@@ -125,39 +168,50 @@ def execute_investigation(
             }
 
             # 4. Resume from checkpoint if one exists.
-            with tracer.start_as_current_span(
-                "investigation.langgraph"
-            ) as graph_span:
+            execution = InvestigationExecution(
+                investigation_id=investigation_id,
+                worker_id=worker_id,
+                lease_token=lease_token,
+            )
+            with bind_investigation_execution(execution):
+                with tracer.start_as_current_span(
+                    "investigation.langgraph"
+                ) as graph_span:
 
-                graph_span.set_attribute(
-                    "traceforge.thread_id",
-                    config["configurable"]["thread_id"],
-                )
+                    graph_span.set_attribute(
+                        "traceforge.thread_id",
+                        config["configurable"]["thread_id"],
+                    )
 
-                with investigation_graph_runtime() as graph:
+                    update_stage("ANALYZING")
 
-                    snapshot = graph.get_state(config)
+                    with investigation_graph_runtime() as graph:
 
-                    if snapshot and snapshot.next:
-                        result = graph.invoke(
-                            None,
-                            config=config,
-                        )
+                        snapshot = graph.get_state(config)
 
-                    elif (
-                        snapshot
-                        and snapshot.values
-                        and snapshot.values.get(
-                            "investigation_complete"
-                        )
-                    ):
-                        result = snapshot.values
+                        if (
+                            snapshot
+                            and snapshot.values
+                            and snapshot.values.get("investigation_complete")
+                        ):
+                            result = snapshot.values
 
-                    else:
-                        result = graph.invoke(
-                            initial_state,
-                            config=config,
-                        )
+                        elif snapshot and snapshot.next:
+                            result = graph.invoke(
+                                None,
+                                config=config,
+                            )
+
+                        elif snapshot and snapshot.values:
+                            raise ValueError(
+                                "Persisted investigation checkpoint has state "
+                                "but no pending work or completion marker."
+                            )
+                        else:
+                            result = graph.invoke(
+                                initial_state,
+                                config=config,
+                            )
 
             # 5. Verify graph completion before marking completed.
             if not result.get("investigation_complete", False):
@@ -165,6 +219,8 @@ def execute_investigation(
                     "LangGraph finished without setting "
                     "investigation_complete=True."
                 )
+
+            update_stage("COMPLETING")
             
             if heartbeat.lost_lease.is_set():
                 raise RuntimeError(
@@ -175,6 +231,7 @@ def execute_investigation(
                 db,
                 investigation_id,
                 worker_id,
+                lease_token,
             )
 
             if not completed:
@@ -195,22 +252,29 @@ def execute_investigation(
 
     except Exception as exc:
         db.rollback()
+        failure = classify_investigation_failure(exc)
 
-        try:
-            fail_investigation(
-                db,
-                investigation_id,
-                worker_id,
-            )
-        except Exception:
-            db.rollback()
+        if lease_token is not None:
+            try:
+                fail_investigation(
+                    db,
+                    investigation_id,
+                    worker_id,
+                    lease_token,
+                    failure_category=failure.category,
+                    failure_message=failure.message,
+                    failure_is_terminal=(
+                        not failure.retryable or final_attempt
+                    ),
+                )
+            except Exception:
+                db.rollback()
 
         current_span = trace.get_current_span()
-        current_span.record_exception(exc)
         current_span.set_status(
             trace.Status(
                 trace.StatusCode.ERROR,
-                "Investigation execution failed",
+                f"{failure.category}: {failure.message}",
             )
         )
 

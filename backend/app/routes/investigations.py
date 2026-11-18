@@ -12,9 +12,7 @@ from app.schemas.finding import Finding
 from app.services.agent_service import (
     run_gemini_log_agent,
 )
-from app.services.root_cause_service import (
-    run_root_cause_analysis
-)
+from app.services.root_cause_service import run_root_cause_analysis
 from app.security import get_current_user
 from app.services.authorization_service import get_owned_incident, get_owned_investigation
 import asyncio
@@ -23,6 +21,7 @@ import json
 from fastapi.responses import StreamingResponse
 
 from app.services.event_bus import event_service
+from app.config import settings
 
 router = APIRouter(
     prefix="/api/incidents",
@@ -182,6 +181,17 @@ def analyze_root_cause(
         investigation_id=investigation.id,
     )
 
+    from app.services.evidence_service import create_evidence
+    create_evidence(
+        db=db,
+        investigation_id=investigation.id,
+        source_type="ROOT_CAUSE",
+        provider="TRACEFORGE_DEMO" if settings.demo_mode else "TRACEFORGE",
+        title="Root cause analysis",
+        content=json.dumps(result.model_dump()),
+        source_reference=f"investigation:{investigation.id}:root-cause",
+    )
+
     return result
 
 @router.get(
@@ -189,12 +199,14 @@ def analyze_root_cause(
 )
 async def investigation_events(
     investigation_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
+    get_owned_investigation(db, investigation_id, user)
 
     async def event_stream():
 
         sent = 0
-
         while True:
 
             events = event_service.get_events(
@@ -216,6 +228,9 @@ async def investigation_events(
 
                 sent += 1
 
+            investigation = db.get(Investigation, investigation_id)
+            if investigation is None or investigation.status in {"COMPLETED", "FAILED"}:
+                break
             await asyncio.sleep(0.5)
 
     return StreamingResponse(
